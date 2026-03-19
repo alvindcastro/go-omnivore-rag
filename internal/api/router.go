@@ -3,9 +3,8 @@
 package api
 
 import (
-	"go-banner-rag/config"
-
 	"github.com/gin-gonic/gin"
+	"go-banner-rag/config"
 )
 
 // NewRouter creates and returns a configured Gin router.
@@ -19,6 +18,9 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	router.GET("/index/stats", h.IndexStats)
 	router.POST("/index/create", h.CreateIndex)
 
+	// Debug
+	router.GET("/debug/chunks", h.ListChunks)
+
 	// RAG
 	router.POST("/ask", h.Ask)
 
@@ -29,7 +31,12 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	router.GET("/blob/list", h.BlobList)
 	router.POST("/blob/sync", h.BlobSync)
 
-	router.GET("/debug/chunks", h.ListChunks)
+	// Summarizer
+	router.POST("/summarize/changes", h.SummarizeChanges)
+	router.POST("/summarize/breaking", h.SummarizeBreaking)
+	router.POST("/summarize/actions", h.SummarizeActions)
+	router.POST("/summarize/compatibility", h.SummarizeCompatibility)
+	router.POST("/summarize/full", h.SummarizeFull)
 
 	return router
 }
