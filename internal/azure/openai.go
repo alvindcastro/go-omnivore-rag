@@ -5,9 +5,11 @@ package azure
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -26,7 +28,7 @@ func NewOpenAIClient(cfg *config.Config) *OpenAIClient {
 	return &OpenAIClient{
 		cfg: cfg,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: 30 * time.Second,
 		},
 	}
 }
@@ -136,7 +138,28 @@ func (c *OpenAIClient) post(url string, body, result any) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payload))
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		err := c.doRequest(url, payload, result, attempt)
+		if err == nil {
+			return nil
+		}
+
+		log.Printf("    Attempt %d failed: %v", attempt, err)
+		if attempt < maxRetries {
+			waitSecs := attempt * 5
+			log.Printf("    Waiting %d seconds before retry...", waitSecs)
+			time.Sleep(time.Duration(waitSecs) * time.Second)
+		}
+	}
+	return fmt.Errorf("all %d attempts failed", maxRetries)
+}
+
+func (c *OpenAIClient) doRequest(url string, payload []byte, result any, attempt int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
@@ -152,6 +175,12 @@ func (c *OpenAIClient) post(url string, body, result any) error {
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode == 429 {
+		log.Printf("    Rate limited (429) — waiting 15 seconds...")
+		time.Sleep(15 * time.Second)
+		return fmt.Errorf("rate limited")
 	}
 
 	if resp.StatusCode >= 400 {

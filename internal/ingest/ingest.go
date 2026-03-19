@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"go-banner-rag/config"
 	"go-banner-rag/internal/azure"
@@ -31,7 +32,7 @@ type Result struct {
 }
 
 // Run walks docsPath, ingests every supported file, and returns a summary.
-func Run(cfg *config.Config, docsPath string, overwrite bool) (*Result, error) {
+func Run(cfg *config.Config, docsPath string, overwrite bool, pagesPerBatch int, startPage int, endPage int) (*Result, error) {
 	openai := azure.NewOpenAIClient(cfg)
 	search := azure.NewSearchClient(cfg)
 
@@ -72,7 +73,7 @@ func Run(cfg *config.Config, docsPath string, overwrite bool) (*Result, error) {
 	for _, filePath := range files {
 		log.Printf("📄 Processing: %s", filepath.Base(filePath))
 
-		n, err := ingestFile(filePath, cfg, openai, search)
+		n, err := ingestFile(filePath, cfg, openai, search, pagesPerBatch, startPage, endPage)
 		if err != nil {
 			log.Printf("  ✗ Error: %v", err)
 			continue
@@ -101,6 +102,9 @@ func ingestFile(
 	cfg *config.Config,
 	openai *azure.OpenAIClient,
 	search *azure.SearchClient,
+	pagesPerBatch int,
+	startPage int,
+	endPage int,
 ) (int, error) {
 	filename := filepath.Base(filePath)
 	meta := parseMetadata(filePath)
@@ -113,44 +117,90 @@ func ingestFile(
 		return 0, nil
 	}
 
-	var docs []azure.ChunkDocument
-	chunkIndex := 0
-
-	for _, page := range pages {
-		chunks := chunkText(page.text, cfg.ChunkSize, cfg.ChunkOverlap)
-		for _, chunk := range chunks {
-			log.Printf("  Embedding chunk %d...", chunkIndex)
-			vector, err := openai.EmbedText(chunk)
-			if err != nil {
-				return 0, fmt.Errorf("embed chunk: %w", err)
+	// Filter pages by range if specified
+	if startPage > 0 || endPage > 0 {
+		var filtered []pageContent
+		for _, p := range pages {
+			if startPage > 0 && p.pageNum < startPage {
+				continue
 			}
+			if endPage > 0 && p.pageNum > endPage {
+				continue
+			}
+			filtered = append(filtered, p)
+		}
+		pages = filtered
+		log.Printf("  Page range filter: %d-%d — %d pages selected", startPage, endPage, len(pages))
+	}
 
-			docs = append(docs, azure.ChunkDocument{
-				ID:            chunkID(filename, page.pageNum, chunkIndex),
-				Filename:      filename,
-				PageNumber:    page.pageNum,
-				BannerModule:  meta.module,
-				BannerVersion: meta.version,
-				Year:          meta.year,
-				ChunkText:     chunk,
-				ContentVector: vector,
-			})
-			chunkIndex++
+	log.Printf("  Total pages to process: %d — batch size: %d", len(pages), pagesPerBatch)
+
+	totalChunks := 0
+	batchSize := pagesPerBatch
+
+	for i := 0; i < len(pages); i += batchSize {
+		end := i + batchSize
+		if end > len(pages) {
+			end = len(pages)
+		}
+
+		batch := pages[i:end]
+		log.Printf("  Processing pages %d-%d of %d...", pages[i].pageNum, pages[end-1].pageNum, len(pages))
+
+		var docs []azure.ChunkDocument
+		chunkIndex := 0
+
+		for _, page := range batch {
+			chunks := chunkText(page.text, cfg.ChunkSize, cfg.ChunkOverlap)
+			log.Printf("    Page %d produced %d chunks", page.pageNum, len(chunks))
+			for _, chunk := range chunks {
+				chunk = sanitizeText(chunk)
+				if chunk == "" {
+					continue
+				}
+
+				log.Printf("    Embedding chunk %d (page %d, %d chars)...", chunkIndex, page.pageNum, len(chunk))
+
+				vector, err := openai.EmbedText(chunk)
+				if err != nil {
+					log.Printf("    ⚠ Skipping chunk %d — error: %v", chunkIndex, err)
+					chunkIndex++
+					continue
+				}
+				// Small pause between API calls to avoid rate limiting
+				time.Sleep(500 * time.Millisecond)
+				docs = append(docs, azure.ChunkDocument{
+					ID:            chunkID(filename, page.pageNum, chunkIndex),
+					Filename:      filename,
+					PageNumber:    page.pageNum,
+					BannerModule:  meta.module,
+					BannerVersion: meta.version,
+					Year:          meta.year,
+					ChunkText:     chunk,
+					ContentVector: vector,
+				})
+				chunkIndex++
+			}
+		}
+
+		// Upload this batch to Azure AI Search
+		if len(docs) > 0 {
+			log.Printf("  Uploading %d chunks to Azure Search...", len(docs))
+			for j := 0; j < len(docs); j += 100 {
+				batchEnd := j + 100
+				if batchEnd > len(docs) {
+					batchEnd = len(docs)
+				}
+				if err := search.UploadDocuments(docs[j:batchEnd]); err != nil {
+					return totalChunks, fmt.Errorf("upload batch: %w", err)
+				}
+			}
+			totalChunks += len(docs)
+			log.Printf("  ✓ Done — %d chunks uploaded (total so far: %d)", len(docs), totalChunks)
 		}
 	}
 
-	// Upload in batches of 100
-	for i := 0; i < len(docs); i += 100 {
-		end := i + 100
-		if end > len(docs) {
-			end = len(docs)
-		}
-		if err := search.UploadDocuments(docs[i:end]); err != nil {
-			return 0, fmt.Errorf("upload batch: %w", err)
-		}
-	}
-
-	return len(docs), nil
+	return totalChunks, nil
 }
 
 // ─── Text Extraction ──────────────────────────────────────────────────────────
@@ -192,7 +242,7 @@ func extractPDFPages(filePath string) ([]pageContent, error) {
 			log.Printf("  Warning: could not extract text from page %d: %v", i, err)
 			continue
 		}
-		text = strings.TrimSpace(text)
+		text = sanitizeText(text)
 		if text != "" {
 			pages = append(pages, pageContent{pageNum: i, text: text})
 		}
@@ -235,7 +285,7 @@ func chunkText(text string, chunkSize, overlap int) []string {
 		}
 
 		// Try to find a clean break point
-		breakAt := end
+		breakAt := -1
 		for _, sep := range []string{"\n\n", "\n", ". ", " "} {
 			pos := strings.LastIndex(text[start:end], sep)
 			if pos > 0 {
@@ -244,14 +294,22 @@ func chunkText(text string, chunkSize, overlap int) []string {
 			}
 		}
 
+		// If no break point found use hard cut
+		if breakAt <= start {
+			breakAt = end
+		}
+
 		chunk := strings.TrimSpace(text[start:breakAt])
 		if chunk != "" {
 			chunks = append(chunks, chunk)
 		}
-		start = breakAt - overlap
-		if start < 0 {
-			start = 0
+
+		// Advance start — guarantee forward progress
+		next := breakAt - overlap
+		if next <= start {
+			next = start + 1 // always move forward
 		}
+		start = next
 	}
 
 	return chunks
@@ -271,7 +329,7 @@ var knownModules = []string{
 	"Accounts_Receivable", "Position_Control",
 }
 
-var versionRegex = regexp.MustCompile(`\b(\d+\.\d+(?:\.\d+)?)\b`)
+var versionRegex = regexp.MustCompile(`(\d+\.\d+\.\d+(?:\.\d+)?)`)
 var yearRegex = regexp.MustCompile(`\b(20\d{2})\b`)
 
 // parseMetadata extracts Banner module and version from the filename.
@@ -289,8 +347,9 @@ func parseMetadata(filePath string) docMetadata {
 		}
 	}
 
-	// Detect version from filename (e.g. 9.3.22)
+	// Detect version from filename
 	matches := versionRegex.FindAllString(filename, -1)
+	log.Printf("  Version matches found in filename: %v", matches) // add this
 	for _, v := range matches {
 		if !strings.HasPrefix(v, "20") {
 			meta.version = v
@@ -298,12 +357,13 @@ func parseMetadata(filePath string) docMetadata {
 		}
 	}
 
-	// Detect year from folder path (e.g. 2026)
+	// Detect year from folder path
 	yearMatches := yearRegex.FindAllString(filePath, -1)
 	if len(yearMatches) > 0 {
 		meta.year = yearMatches[0]
 	}
 
+	log.Printf("  Metadata — module: %q, version: %q, year: %q", meta.module, meta.version, meta.year)
 	return meta
 }
 
@@ -311,4 +371,50 @@ func parseMetadata(filePath string) docMetadata {
 func chunkID(filename string, page, index int) string {
 	raw := fmt.Sprintf("%s::p%d::c%d", filename, page, index)
 	return fmt.Sprintf("%x", md5.Sum([]byte(raw)))
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func sanitizeText(text string) string {
+	// Replace common PDF special characters
+	replacer := strings.NewReplacer(
+		"•", "-",
+		"–", "-",
+		"—", "-",
+		"\u00a0", " ",
+		"\u200b", "",
+		"\ufffd", "",
+		"\f", " ",
+		"\r", " ",
+	)
+	text = strings.TrimSpace(replacer.Replace(text))
+
+	// Trim mid-word fragments from the start
+	// A fragment is any leading text before the first space that is
+	// shorter than 5 chars AND not a known short word
+	firstSpace := strings.Index(text, " ")
+	if firstSpace > 0 && firstSpace <= 5 {
+		firstWord := text[:firstSpace]
+		if !isCommonShortWord(firstWord) {
+			text = strings.TrimSpace(text[firstSpace:])
+		}
+	}
+
+	return text
+}
+
+func isCommonShortWord(w string) bool {
+	w = strings.ToLower(w)
+	short := map[string]bool{
+		"a": true, "an": true, "the": true, "in": true,
+		"on": true, "at": true, "to": true, "of": true,
+		"or": true, "is": true, "it": true, "as": true,
+		"by": true, "be": true, "if": true, "no": true,
+	}
+	return short[w]
 }

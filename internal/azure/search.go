@@ -163,7 +163,7 @@ func (c *SearchClient) UploadDocuments(docs []ChunkDocument) error {
 	}
 	actions := make([]actionDoc, len(docs))
 	for i, d := range docs {
-		actions[i] = actionDoc{Action: "upload", ChunkDocument: d}
+		actions[i] = actionDoc{Action: "mergeOrUpload", ChunkDocument: d}
 	}
 
 	body := map[string]any{"value": actions}
@@ -235,6 +235,8 @@ func (c *SearchClient) HybridSearch(
 		filters = append(filters, fmt.Sprintf("banner_version eq '%s'", versionFilter))
 	}
 	if moduleFilter != "" {
+		// Capitalize first letter to match stored values e.g. "general" -> "General"
+		moduleFilter = strings.ToUpper(moduleFilter[:1]) + strings.ToLower(moduleFilter[1:])
 		filters = append(filters, fmt.Sprintf("banner_module eq '%s'", moduleFilter))
 	}
 	if yearFilter != "" {
