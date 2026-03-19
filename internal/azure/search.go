@@ -52,10 +52,10 @@ func (c *SearchClient) CreateIndex() error {
 			{"name": "banner_module", "type": "Edm.String", "filterable": true, "facetable": true},
 			{"name": "banner_version", "type": "Edm.String", "filterable": true, "facetable": true},
 			{
-				"name":         "chunk_text",
-				"type":         "Edm.String",
-				"searchable":   true,
-				"analyzerName": "en.microsoft",
+				"name":       "chunk_text",
+				"type":       "Edm.String",
+				"searchable": true,
+				"analyzer":   "en.microsoft",
 			},
 			{
 				"name":                "content_vector",
@@ -80,8 +80,8 @@ func (c *SearchClient) CreateIndex() error {
 			},
 			"profiles": []map[string]any{
 				{
-					"name":                       "banner-vector-profile",
-					"algorithmConfigurationName": "banner-hnsw",
+					"name":      "banner-vector-profile",
+					"algorithm": "banner-hnsw",
 				},
 			},
 		},
