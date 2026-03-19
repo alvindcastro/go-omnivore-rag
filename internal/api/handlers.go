@@ -75,6 +75,7 @@ type askRequest struct {
 	TopK          int    `json:"top_k"`
 	VersionFilter string `json:"version_filter"`
 	ModuleFilter  string `json:"module_filter"`
+	YearFilter    string `json:"year_filter"`
 }
 
 // Ask godoc
@@ -101,6 +102,7 @@ func (h *Handler) Ask(c *gin.Context) {
 		TopK:          req.TopK,
 		VersionFilter: req.VersionFilter,
 		ModuleFilter:  req.ModuleFilter,
+		YearFilter:    req.YearFilter,
 	})
 	if err != nil {
 		log.Printf("RAG error: %v", err)

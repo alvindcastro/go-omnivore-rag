@@ -51,6 +51,7 @@ func (c *SearchClient) CreateIndex() error {
 			{"name": "page_number", "type": "Edm.Int32", "filterable": true},
 			{"name": "banner_module", "type": "Edm.String", "filterable": true, "facetable": true},
 			{"name": "banner_version", "type": "Edm.String", "filterable": true, "facetable": true},
+			{"name": "year", "type": "Edm.String", "filterable": true, "facetable": true},
 			{
 				"name":       "chunk_text",
 				"type":       "Edm.String",
@@ -142,6 +143,7 @@ type ChunkDocument struct {
 	PageNumber    int       `json:"page_number"`
 	BannerModule  string    `json:"banner_module"`
 	BannerVersion string    `json:"banner_version"`
+	Year          string    `json:"year"`
 	ChunkText     string    `json:"chunk_text"`
 	ContentVector []float32 `json:"content_vector"`
 }
@@ -193,6 +195,7 @@ type SearchResult struct {
 	PageNumber    int     `json:"page_number"`
 	BannerModule  string  `json:"banner_module"`
 	BannerVersion string  `json:"banner_version"`
+	Year          string  `json:"year"`
 	ChunkText     string  `json:"chunk_text"`
 	Score         float64 `json:"@search.score"`
 }
@@ -204,6 +207,7 @@ func (c *SearchClient) HybridSearch(
 	topK int,
 	versionFilter string,
 	moduleFilter string,
+	yearFilter string,
 ) ([]SearchResult, error) {
 	url := fmt.Sprintf(
 		"%s/indexes/%s/docs/search?api-version=2024-03-01-Preview",
@@ -214,7 +218,7 @@ func (c *SearchClient) HybridSearch(
 	searchBody := map[string]any{
 		"search": queryText, // BM25 keyword leg
 		"top":    topK,
-		"select": "id,filename,page_number,banner_module,banner_version,chunk_text",
+		"select": "id,filename,page_number,banner_module,banner_version,year,chunk_text",
 		"vectorQueries": []map[string]any{
 			{
 				"kind":   "vector",
@@ -232,6 +236,9 @@ func (c *SearchClient) HybridSearch(
 	}
 	if moduleFilter != "" {
 		filters = append(filters, fmt.Sprintf("banner_module eq '%s'", moduleFilter))
+	}
+	if yearFilter != "" {
+		filters = append(filters, fmt.Sprintf("year eq '%s'", yearFilter)) // add this
 	}
 	if len(filters) > 0 {
 		searchBody["filter"] = strings.Join(filters, " and ")

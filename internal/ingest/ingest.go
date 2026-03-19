@@ -103,7 +103,7 @@ func ingestFile(
 	search *azure.SearchClient,
 ) (int, error) {
 	filename := filepath.Base(filePath)
-	meta := parseMetadata(filename)
+	meta := parseMetadata(filePath)
 
 	pages, err := extractPages(filePath)
 	if err != nil {
@@ -119,6 +119,7 @@ func ingestFile(
 	for _, page := range pages {
 		chunks := chunkText(page.text, cfg.ChunkSize, cfg.ChunkOverlap)
 		for _, chunk := range chunks {
+			log.Printf("  Embedding chunk %d...", chunkIndex)
 			vector, err := openai.EmbedText(chunk)
 			if err != nil {
 				return 0, fmt.Errorf("embed chunk: %w", err)
@@ -130,6 +131,7 @@ func ingestFile(
 				PageNumber:    page.pageNum,
 				BannerModule:  meta.module,
 				BannerVersion: meta.version,
+				Year:          meta.year,
 				ChunkText:     chunk,
 				ContentVector: vector,
 			})
@@ -260,6 +262,7 @@ func chunkText(text string, chunkSize, overlap int) []string {
 type docMetadata struct {
 	module  string
 	version string
+	year    string
 }
 
 var knownModules = []string{
@@ -269,27 +272,36 @@ var knownModules = []string{
 }
 
 var versionRegex = regexp.MustCompile(`\b(\d+\.\d+(?:\.\d+)?)\b`)
+var yearRegex = regexp.MustCompile(`\b(20\d{2})\b`)
 
 // parseMetadata extracts Banner module and version from the filename.
 // Example: Banner_Finance_9.3.22_ReleaseNotes.pdf → {Finance, 9.3.22}
-func parseMetadata(filename string) docMetadata {
-	lower := strings.ToLower(filename)
+func parseMetadata(filePath string) docMetadata {
+	filename := filepath.Base(filePath)
+	lowerPath := strings.ToLower(filePath)
 	meta := docMetadata{}
 
+	// Detect module from folder name
 	for _, mod := range knownModules {
-		if strings.Contains(lower, strings.ToLower(mod)) {
+		if strings.Contains(lowerPath, strings.ToLower(mod)) {
 			meta.module = strings.ReplaceAll(mod, "_", " ")
 			break
 		}
 	}
 
+	// Detect version from filename (e.g. 9.3.22)
 	matches := versionRegex.FindAllString(filename, -1)
 	for _, v := range matches {
-		// Skip years (e.g. 2024)
 		if !strings.HasPrefix(v, "20") {
 			meta.version = v
 			break
 		}
+	}
+
+	// Detect year from folder path (e.g. 2026)
+	yearMatches := yearRegex.FindAllString(filePath, -1)
+	if len(yearMatches) > 0 {
+		meta.year = yearMatches[0]
 	}
 
 	return meta

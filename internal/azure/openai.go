@@ -48,7 +48,7 @@ type embeddingResponse struct {
 // EmbedText sends a string to ada-002 and returns a 1536-dim vector.
 func (c *OpenAIClient) EmbedText(text string) ([]float32, error) {
 	url := fmt.Sprintf(
-		"%sopenai/deployments/%s/embeddings?api-version=%s",
+		"%s/openai/deployments/%s/embeddings?api-version=%s",
 		strings.TrimRight(c.cfg.AzureOpenAIEndpoint, "/"),
 		c.cfg.AzureOpenAIEmbeddingDeployment,
 		c.cfg.AzureOpenAIAPIVersion,
@@ -101,7 +101,7 @@ type openAIError struct {
 // ChatComplete sends messages to GPT-4o-mini and returns the reply text.
 func (c *OpenAIClient) ChatComplete(messages []ChatMessage) (string, error) {
 	url := fmt.Sprintf(
-		"%sopenai/deployments/%s/chat/completions?api-version=%s",
+		"%s/openai/deployments/%s/chat/completions?api-version=%s",
 		strings.TrimRight(c.cfg.AzureOpenAIEndpoint, "/"),
 		c.cfg.AzureOpenAIChatDeployment,
 		c.cfg.AzureOpenAIAPIVersion,
