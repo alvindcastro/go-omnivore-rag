@@ -29,5 +29,7 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	router.GET("/blob/list", h.BlobList)
 	router.POST("/blob/sync", h.BlobSync)
 
+	router.GET("/debug/chunks", h.ListChunks)
+
 	return router
 }
