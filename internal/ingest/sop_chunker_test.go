@@ -8,6 +8,16 @@ import (
 	"testing"
 )
 
+
+func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
+	// ListParagraph items that start with a number should never be headings
+	// even if they look like "1. Do something"
+	p := DocxParagraph{Style: "ListParagraph", Text: "1. Login to the server"}
+	if got := effectiveHeadingLevel(p); got != 0 {
+		t.Errorf("ListParagraph starting with number should return 0, got %d", got)
+	}
+}
+
 func TestChunkSop_RealFiles(t *testing.T) {
 	files := []string{
 		"../../data/docs/sop/SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx",
