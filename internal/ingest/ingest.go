@@ -44,7 +44,13 @@ func Run(cfg *config.Config, docsPath string, overwrite bool, pagesPerBatch int,
 		}
 	}
 
+	// pagesPerBatch must be positive for the Banner page-batching loop.
+	if pagesPerBatch == 0 {
+		pagesPerBatch = 10
+	}
+
 	// Collect supported files
+	supported := map[string]bool{".pdf": true, ".txt": true, ".md": true, ".docx": true}
 	var files []string
 	err := filepath.Walk(docsPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -72,7 +78,15 @@ func Run(cfg *config.Config, docsPath string, overwrite bool, pagesPerBatch int,
 	for _, filePath := range files {
 		log.Printf("📄 Processing: %s", filepath.Base(filePath))
 
-		n, err := ingestFile(filePath, cfg, openai, search, pagesPerBatch, startPage, endPage)
+		var (
+			n   int
+			err error
+		)
+		if isSopDocument(filePath) {
+			n, err = ingestSopFile(filePath, cfg, openai, search)
+		} else {
+			n, err = ingestFile(filePath, cfg, openai, search, pagesPerBatch, startPage, endPage)
+		}
 		if err != nil {
 			log.Printf("  ✗ Error: %v", err)
 			continue
@@ -172,6 +186,7 @@ func ingestFile(
 					ID:            chunkID(filename, page.pageNum, chunkIndex),
 					Filename:      filename,
 					PageNumber:    page.pageNum,
+					SourceType:    "banner",
 					BannerModule:  meta.module,
 					BannerVersion: meta.version,
 					Year:          meta.year,
@@ -411,4 +426,75 @@ func isCommonShortWord(w string) bool {
 		"by": true, "be": true, "if": true, "no": true,
 	}
 	return short[w]
+}
+
+// ─── SOP File Processing ──────────────────────────────────────────────────────
+
+// ingestSopFile processes a single .docx SOP file using section-aware chunking.
+// Unlike Banner ingestion there are no pages — each SopChunk becomes one document.
+func ingestSopFile(
+	filePath string,
+	cfg *config.Config,
+	openai *azure.OpenAIClient,
+	search *azure.SearchClient,
+) (int, error) {
+	filename := filepath.Base(filePath)
+
+	paras, err := extractDocxParagraphs(filePath)
+	if err != nil {
+		return 0, fmt.Errorf("extract docx: %w", err)
+	}
+
+	meta := parseSopFilename(filePath)
+	if meta.number == "" {
+		log.Printf("  ⚠ Could not parse SOP number from %q — file will be skipped", filename)
+		return 0, nil
+	}
+
+	chunks := chunkSop(paras, meta)
+	if len(chunks) == 0 {
+		log.Printf("  ⚠ No chunks produced from %q", filename)
+		return 0, nil
+	}
+
+	log.Printf("  SOP %s — %q — %d chunks", meta.number, meta.title, len(chunks))
+
+	var docs []azure.ChunkDocument
+	for i, chunk := range chunks {
+		title := chunk.SectionTitle
+		if len(title) > 50 {
+			title = title[:50] + "…"
+		}
+		log.Printf("    Embedding chunk %d/%d: %q", i+1, len(chunks), title)
+
+		vector, err := openai.EmbedText(chunk.Text)
+		if err != nil {
+			log.Printf("    ⚠ Skipping chunk %d — embed error: %v", i, err)
+			continue
+		}
+		time.Sleep(500 * time.Millisecond)
+
+		docs = append(docs, azure.ChunkDocument{
+			ID:            chunkID(filename, 0, i),
+			Filename:      filename,
+			PageNumber:    i + 1, // repurposed as chunk number for SOPs
+			SourceType:    "sop",
+			SOPNumber:     meta.number,
+			DocumentTitle: meta.title,
+			ChunkText:     chunk.Text,
+			ContentVector: vector,
+		})
+	}
+
+	for j := 0; j < len(docs); j += 100 {
+		end := j + 100
+		if end > len(docs) {
+			end = len(docs)
+		}
+		if err := search.UploadDocuments(docs[j:end]); err != nil {
+			return len(docs), fmt.Errorf("upload batch: %w", err)
+		}
+	}
+
+	return len(docs), nil
 }
