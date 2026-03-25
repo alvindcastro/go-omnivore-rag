@@ -1,0 +1,10 @@
+basePath: /
+host: localhost:8000
+info:
+  contact: {}
+  description: RAG pipeline over Banner release notes and Standard Operating Procedures
+    (SOPs), backed by Azure OpenAI and Azure Cognitive Search.
+  title: go-omnivore-rag API
+  version: "1.0"
+paths: {}
+swagger: "2.0"
