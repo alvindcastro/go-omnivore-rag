@@ -44,10 +44,10 @@ params:
     text: "Notes from the Stack"
 
   homeInfoParams:
-    Title: "We stopped reading Banner release notes."
+    Title: "Notes from the Stack"
     Content: >
-      Ask your Banner upgrade docs a question. Get a cited answer in under three seconds.
-      Built in Go on top of Azure OpenAI and Azure AI Search — no frameworks, no hallucinations.
+      A dev learning log. Building an internal knowledge assistant for Banner ERP upgrades —
+      RAG, Go, Azure OpenAI, and whatever else the team actually needs.
 
   socialIcons:
     - name: github
