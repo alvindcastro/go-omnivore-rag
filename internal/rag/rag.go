@@ -17,20 +17,24 @@ import (
 
 // AskRequest is the input to the RAG pipeline.
 type AskRequest struct {
-	Question      string `json:"question"`
-	TopK          int    `json:"top_k"`
-	VersionFilter string `json:"version_filter"`
-	ModuleFilter  string `json:"module_filter"`
-	YearFilter    string `json:"year_filter"`
+	Question         string `json:"question"`
+	TopK             int    `json:"top_k"`
+	VersionFilter    string `json:"version_filter"`
+	ModuleFilter     string `json:"module_filter"`
+	YearFilter       string `json:"year_filter"`
+	SourceTypeFilter string `json:"source_type"` // "banner", "sop", or "" for all
 }
 
 // SourceChunk is a single retrieved document chunk returned to the caller.
 type SourceChunk struct {
 	Filename      string  `json:"filename"`
 	Page          int     `json:"page"`
-	BannerModule  string  `json:"banner_module"`
-	BannerVersion string  `json:"banner_version"`
-	Year          string  `json:"year"`
+	BannerModule  string  `json:"banner_module,omitempty"`
+	BannerVersion string  `json:"banner_version,omitempty"`
+	Year          string  `json:"year,omitempty"`
+	SourceType    string  `json:"source_type"`
+	SOPNumber     string  `json:"sop_number,omitempty"`
+	DocumentTitle string  `json:"document_title,omitempty"`
 	ChunkText     string  `json:"chunk_text"`
 	Score         float64 `json:"score"`
 }
@@ -90,6 +94,7 @@ func (p *Pipeline) Ask(req AskRequest) (*AskResponse, error) {
 		req.VersionFilter,
 		req.ModuleFilter,
 		req.YearFilter,
+		req.SourceTypeFilter,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
@@ -115,6 +120,9 @@ func (p *Pipeline) Ask(req AskRequest) (*AskResponse, error) {
 			BannerModule:  r.BannerModule,
 			BannerVersion: r.BannerVersion,
 			Year:          r.Year,
+			SourceType:    r.SourceType,
+			SOPNumber:     r.SOPNumber,
+			DocumentTitle: r.DocumentTitle,
 			ChunkText:     r.ChunkText,
 			Score:         r.Score,
 		}
