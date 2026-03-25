@@ -8,7 +8,12 @@
       "Bash(go test:*)",
       "Bash(gh run:*)",
       "Bash(go get:*)",
-      "Bash(\"C:/Users/decastroa/GolandProjects/go-omnivore-rag/gen/go/.gitkeep\")"
+      "Bash(\"C:/Users/decastroa/GolandProjects/go-omnivore-rag/gen/go/.gitkeep\")",
+      "Bash(swag init:*)",
+      "Bash(go install:*)",
+      "Bash(echo $PATH)",
+      "Read(//c/Users/decastroa/go/bin/**)",
+      "Bash(~/go/bin/swag.exe init:*)"
     ]
   }
 }

@@ -1,6 +1,13 @@
 // cmd/main.go
 // Application entry point.
 // Loads config, sets up the router, starts the HTTP server.
+
+//	@title			go-omnivore-rag API
+//	@version		1.0
+//	@description	RAG pipeline over Banner release notes and Standard Operating Procedures (SOPs), backed by Azure OpenAI and Azure Cognitive Search.
+//	@host			localhost:8000
+//	@BasePath		/
+
 package main
 
 import (

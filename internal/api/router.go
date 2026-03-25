@@ -3,6 +3,11 @@
 package api
 
 import (
+	_ "go-omnivore-rag/docs"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/gin-gonic/gin"
 	"go-omnivore-rag/config"
 )
@@ -12,6 +17,9 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	router := gin.Default()
 
 	h := NewHandler(cfg)
+
+	// ── Swagger UI ────────────────────────────────────────────────────────────
+	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ── System ────────────────────────────────────────────────────────────────
 	router.GET("/health", h.Health)
