@@ -104,12 +104,15 @@ The project structure reflects this separation:
 internal/
   api/        → Gin HTTP handlers and router
   azure/      → REST clients for OpenAI, Search, Blob
-  ingest/     → PDF parsing, chunking, embedding, indexing
+  ingest/     → PDF/DOCX parsing, chunking, embedding, indexing
+                  docx.go          DOCX paragraph extractor
+                  sop.go           SOP filename/metadata parser
+                  sop_chunker.go   Section-aware chunker with breadcrumbs
   rag/        → Query answering and summarization
 config/       → Environment-based configuration
 ```
 
-Roughly 2,000 lines of Go. Four direct dependencies.
+Four direct dependencies.
 
 ## What's Next
 
