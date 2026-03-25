@@ -6,7 +6,9 @@
       "Bash(go vet:*)",
       "Bash(go run:*)",
       "Bash(go test:*)",
-      "Bash(gh run:*)"
+      "Bash(gh run:*)",
+      "Bash(go get:*)",
+      "Bash(\"C:/Users/decastroa/GolandProjects/go-omnivore-rag/gen/go/.gitkeep\")"
     ]
   }
 }
