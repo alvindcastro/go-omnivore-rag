@@ -3,7 +3,7 @@ title: "We stopped reading Banner release notes. Here's what we built instead."
 date: 2026-03-23
 description: "Stop ctrl+F-ing through 80-page PDFs — ask your Banner release notes a question and get a cited answer in under three seconds."
 tags: ["go", "rag", "azure", "openai", "ellucian-banner", "vector-search"]
-series: ["go-banner-rag"]
+series: ["go-omnivore-rag"]
 showToc: false
 draft: false
 weight: 1
@@ -25,7 +25,7 @@ These are the real risks that make every upgrade stressful — and exactly what 
 
 > **Built in Go. Powered by Azure OpenAI + Azure AI Search.**
 > No frameworks. No hallucinations. ~2k lines of Go.
-> [github.com/alvindcastro/go-banner-rag](https://github.com/alvindcastro/go-banner-rag)
+> [github.com/alvindcastro/go-omnivore-rag](https://github.com/alvindcastro/go-omnivore-rag)
 
 ---
 

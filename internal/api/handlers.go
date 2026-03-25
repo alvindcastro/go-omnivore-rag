@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go-banner-rag/config"
-	"go-banner-rag/internal/azure"
-	"go-banner-rag/internal/ingest"
-	"go-banner-rag/internal/rag"
+	"go-omnivore-rag/config"
+	"go-omnivore-rag/internal/azure"
+	"go-omnivore-rag/internal/ingest"
+	"go-omnivore-rag/internal/rag"
 )
 
 // Handler holds shared dependencies injected at startup.

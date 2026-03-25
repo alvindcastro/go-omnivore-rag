@@ -4,7 +4,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"go-banner-rag/config"
+	"go-omnivore-rag/config"
 )
 
 // NewRouter creates and returns a configured Gin router.

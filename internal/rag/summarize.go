@@ -8,7 +8,7 @@ import (
 	"log"
 	"strings"
 
-	"go-banner-rag/internal/azure"
+	"go-omnivore-rag/internal/azure"
 )
 
 // ─── Request / Response Types ─────────────────────────────────────────────────

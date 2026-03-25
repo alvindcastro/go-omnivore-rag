@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"go-banner-rag/config"
-	"go-banner-rag/internal/azure"
+	"go-omnivore-rag/config"
+	"go-omnivore-rag/internal/azure"
 
 	"github.com/ledongthuc/pdf"
 )

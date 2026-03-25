@@ -1,12 +1,12 @@
 ---
-title: "Building go-banner-rag, Part 1: The Problem Nobody Talks About"
+title: "Building go-omnivore-rag, Part 1: The Problem Nobody Talks About"
 date: 2026-03-24
-description: "Every Banner upgrade ships a PDF. Someone has to read it. What if they didn't have to? This is the story of how go-banner-rag started — the pain point, the idea, and the architecture that emerged from a whiteboard session."
+description: "Every Banner upgrade ships a PDF. Someone has to read it. What if they didn't have to? This is the story of how go-omnivore-rag started — the pain point, the idea, and the architecture that emerged from a whiteboard session."
 tags: ["go", "rag", "ai", "azure", "architecture", "ellucian-banner"]
-series: ["go-banner-rag"]
+series: ["go-omnivore-rag"]
 cover:
   image: ""
-  alt: "Architecture diagram of the go-banner-rag RAG pipeline"
+  alt: "Architecture diagram of the go-omnivore-rag RAG pipeline"
   relative: false
 showToc: true
 TocOpen: false

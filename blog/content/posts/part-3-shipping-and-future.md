@@ -1,9 +1,9 @@
 ---
-title: "Building go-banner-rag, Part 3: Shipping, Summarizers, and What Comes Next"
+title: "Building go-omnivore-rag, Part 3: Shipping, Summarizers, and What Comes Next"
 date: 2026-03-24
 description: "Adding structured summarization for Banner release notes, debug tooling, Bruno API collections, and the roadmap ahead — cost monitoring, streaming, multi-document diffing, and a proper frontend."
 tags: ["go", "rag", "summarization", "azure-openai", "developer-experience", "roadmap"]
-series: ["go-banner-rag"]
+series: ["go-omnivore-rag"]
 showToc: true
 TocOpen: false
 draft: false
@@ -169,4 +169,4 @@ That is usually how it goes.
 
 ---
 
-*The full source is on GitHub: [alvindcastro/go-banner-rag](https://github.com/alvindcastro/go-banner-rag)*
+*The full source is on GitHub: [alvindcastro/go-omnivore-rag](https://github.com/alvindcastro/go-omnivore-rag)*

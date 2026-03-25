@@ -1,4 +1,4 @@
-module go-banner-rag
+module go-omnivore-rag
 
 go 1.22
 

@@ -1,6 +1,6 @@
-baseURL: "https://alvindcastro.github.io/go-banner-rag/"
+baseURL: "https://alvindcastro.github.io/go-omnivore-rag/"
 languageCode: en-us
-title: "go-banner-rag"
+title: "go-omnivore-rag"
 theme: PaperMod
 
 paginate: 10
@@ -16,7 +16,7 @@ minify:
 
 params:
   env: production
-  title: "go-banner-rag"
+  title: "go-omnivore-rag"
   description: "Building an AI-powered RAG assistant for Ellucian Banner ERP — a story about architecture, Go, Azure, and making PDF chaos disappear."
   keywords: [Go, RAG, AI, Azure, OpenAI, "Vector Search", "Ellucian Banner", ERP]
   author: Alvin D. Castro
@@ -41,7 +41,7 @@ params:
   tocopen: false
 
   label:
-    text: "go-banner-rag"
+    text: "go-omnivore-rag"
 
   homeInfoParams:
     Title: "We stopped reading Banner release notes."
@@ -51,7 +51,7 @@ params:
 
   socialIcons:
     - name: github
-      url: "https://github.com/alvindcastro/go-banner-rag"
+      url: "https://github.com/alvindcastro/go-omnivore-rag"
 
   cover:
     hidden: false
@@ -59,7 +59,7 @@ params:
     hiddenInSingle: false
 
   editPost:
-    URL: "https://github.com/alvindcastro/go-banner-rag/tree/main/blog/content"
+    URL: "https://github.com/alvindcastro/go-omnivore-rag/tree/main/blog/content"
     Text: "Suggest Changes"
     appendFilePath: true
 
@@ -85,7 +85,7 @@ menu:
       weight: 20
     - identifier: github
       name: GitHub
-      url: https://github.com/alvindcastro/go-banner-rag
+      url: https://github.com/alvindcastro/go-omnivore-rag
       weight: 30
 
 outputs:

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"go-banner-rag/config"
+	"go-omnivore-rag/config"
 )
 
 // OpenAIClient wraps Azure OpenAI REST calls.

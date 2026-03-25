@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"go-banner-rag/config"
+	"go-omnivore-rag/config"
 )
 
 // SearchClient wraps Azure AI Search REST calls.

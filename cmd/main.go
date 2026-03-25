@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"go-banner-rag/config"
-	"go-banner-rag/internal/api"
+	"go-omnivore-rag/config"
+	"go-omnivore-rag/internal/api"
 )
 
 func main() {

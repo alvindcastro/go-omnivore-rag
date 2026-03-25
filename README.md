@@ -1,4 +1,4 @@
-# Banner Upgrade RAG Assistant (Go)
+# go-omnivore-rag
 
 > **Educational Project** — This project demonstrates how to build an Internal Knowledge Assistant (RAG System) using Go and Microsoft Azure AI services. It is intended as a learning exercise for developers interested in RAG architecture, Azure OpenAI, and Go REST APIs.
 >
@@ -45,7 +45,7 @@ Banner PDF Release Notes
 ## Project Structure
 
 ```
-go-banner-rag/
+go-omnivore-rag/
 ├── cmd/
 │   └── main.go                        ← Entry point
 ├── config/
@@ -97,8 +97,8 @@ go-banner-rag/
 
 ### 2. Clone and install
 ```bash
-git clone https://github.com/<your-username>/go-banner-rag.git
-cd go-banner-rag
+git clone https://github.com/<your-username>/go-omnivore-rag.git
+cd go-omnivore-rag
 go mod tidy
 ```
 
@@ -106,13 +106,13 @@ go mod tidy
 
 **Resource Group**
 ```
-Name: rg-banner-rag
+Name: rg-omnivore-rag
 Region: Canada Central
 ```
 
 **Azure OpenAI** (Canada East)
 ```
-Name: banner-rag-openai
+Name: omnivore-rag-openai
 Tier: Standard S0
 Deployments:
   - gpt-4o-mini (version 2024-07-18, 10K TPM)
@@ -121,13 +121,13 @@ Deployments:
 
 **Azure AI Search** (Canada Central)
 ```
-Name: banner-rag-search
+Name: omnivore-rag-search
 Tier: Free
 ```
 
 **Azure Blob Storage** (Canada Central)
 ```
-Name: bannerragstorage
+Name: omnivoreragstorage
 Redundancy: LRS
 Container: banner-release-notes (Private)
 ```
@@ -363,7 +363,7 @@ Recommended tool for testing: [usebruno.com](https://www.usebruno.com)
 
 Collection structure:
 ```
-Banner RAG API/
+Omnivore RAG API/
 ├── System/
 │   ├── Health Check
 │   ├── Index Stats

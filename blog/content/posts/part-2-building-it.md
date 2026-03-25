@@ -1,9 +1,9 @@
 ---
-title: "Building go-banner-rag, Part 2: From PDFs to Answers"
+title: "Building go-omnivore-rag, Part 2: From PDFs to Answers"
 date: 2026-03-24
-description: "The ingestion pipeline, chunking strategy, hybrid search, and the RAG query loop — how go-banner-rag turns raw PDFs into grounded, cited answers."
+description: "The ingestion pipeline, chunking strategy, hybrid search, and the RAG query loop — how go-omnivore-rag turns raw PDFs into grounded, cited answers."
 tags: ["go", "rag", "azure-ai-search", "openai", "vector-search", "pdf-parsing"]
-series: ["go-banner-rag"]
+series: ["go-omnivore-rag"]
 showToc: true
 TocOpen: false
 draft: false
