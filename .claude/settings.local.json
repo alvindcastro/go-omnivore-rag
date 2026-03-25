@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -r go-banner-rag /c/Users/decastroa/GolandProjects/go-omnivore-rag --include=*.go --include=*.mod --include=*.md --include=*.yaml --include=*.yml)"
+      "Bash(grep -r go-banner-rag /c/Users/decastroa/GolandProjects/go-omnivore-rag --include=*.go --include=*.mod --include=*.md --include=*.yaml --include=*.yml)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(go run:*)",
+      "Bash(go test:*)"
     ]
   }
 }
