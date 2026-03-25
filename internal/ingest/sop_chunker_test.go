@@ -8,6 +8,31 @@ import (
 	"testing"
 )
 
+// ─── effectiveHeadingLevel ────────────────────────────────────────────────────
+
+func TestEffectiveHeadingLevel_StyledHeadings(t *testing.T) {
+	cases := []struct {
+		style string
+		text  string
+		want  int
+	}{
+		{"Heading1", "SMOKE TEST", 1},
+		{"Heading2", "Check the links", 2},
+		{"Heading3", "Log in as student", 3},
+		{"Heading4", "Sub step", 4},
+		{"Normal", "Regular body text.", 0},
+		{"ListParagraph", "Step one", 0},
+		{"TOC1", "Table of contents entry", 0},
+		{"Company", "Douglas College", 0},
+	}
+	for _, c := range cases {
+		p := DocxParagraph{Style: c.style, Text: c.text}
+		if got := effectiveHeadingLevel(p); got != c.want {
+			t.Errorf("effectiveHeadingLevel(%q, %q) = %d, want %d", c.style, c.text, got, c.want)
+		}
+	}
+}
+
 
 func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
 	// ListParagraph items that start with a number should never be headings
