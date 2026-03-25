@@ -72,6 +72,33 @@ func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
 	}
 }
 
+func TestChunkSop_DeeperLevelClearedOnNewH1(t *testing.T) {
+	meta := sopMetadata{number: "1", title: "T"}
+	paras := []DocxParagraph{
+		{Style: "Heading1", Text: "Part A"},
+		{Style: "Heading2", Text: "Section A.1"},
+		{Style: "Heading3", Text: "Detail"},
+		{Style: "Normal", Text: "body"},
+		{Style: "Heading1", Text: "Part B"}, // new H1 — H2 and H3 must clear
+		{Style: "Normal", Text: "part b body"},
+	}
+
+	chunks := chunkSop(paras, meta)
+
+	// Find the Part B chunk
+	var partBChunk *SopChunk
+	for i := range chunks {
+		if chunks[i].SectionTitle == "Part B" {
+			partBChunk = &chunks[i]
+		}
+	}
+	if partBChunk == nil {
+		t.Fatal("no chunk with SectionTitle='Part B'")
+	}
+	assertNotContains(t, partBChunk.Text, "Section A.1")
+	assertNotContains(t, partBChunk.Text, "Detail")
+}
+
 func TestChunkSop_EmptyBodySkipped(t *testing.T) {
 	// A heading immediately followed by another heading should not emit an empty chunk.
 	meta := sopMetadata{number: "1", title: "T"}
