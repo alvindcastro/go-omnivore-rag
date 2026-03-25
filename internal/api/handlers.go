@@ -74,7 +74,7 @@ func (h *Handler) CreateIndex(c *gin.Context) {
 
 func (h *Handler) ListChunks(c *gin.Context) {
 	url := fmt.Sprintf(
-		"%s/indexes/%s/docs?api-version=2024-03-01-Preview&search=*&$top=50&$select=id,filename,page_number,banner_module,banner_version",
+		"%s/indexes/%s/docs?api-version=2024-03-01-Preview&search=*&$top=50&$select=id,filename,page_number,banner_module,banner_version,source_type,sop_number",
 		strings.TrimRight(h.cfg.AzureSearchEndpoint, "/"),
 		h.cfg.AzureSearchIndexName,
 	)
@@ -95,10 +95,10 @@ func (h *Handler) ListChunks(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// ─── RAG ──────────────────────────────────────────────────────────────────────
+// ─── Banner ───────────────────────────────────────────────────────────────────
 
 type askRequest struct {
-	Question      string `json:"question"  binding:"required,min=5"`
+	Question      string `json:"question"       binding:"required,min=5"`
 	TopK          int    `json:"top_k"`
 	VersionFilter string `json:"version_filter"`
 	ModuleFilter  string `json:"module_filter"`
@@ -106,7 +106,6 @@ type askRequest struct {
 }
 
 func (h *Handler) Ask(c *gin.Context) {
-	var req askRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -115,38 +114,38 @@ func (h *Handler) Ask(c *gin.Context) {
 		req.TopK = h.cfg.TopKDefault
 	}
 
-	log.Printf("Q: %q | top_k=%d | version=%s | module=%s | year=%s",
+	log.Printf("[banner/ask] Q: %q | top_k=%d | version=%s | module=%s | year=%s",
 		req.Question, req.TopK, req.VersionFilter, req.ModuleFilter, req.YearFilter)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:      req.Question,
-		TopK:          req.TopK,
 		VersionFilter: req.VersionFilter,
-		ModuleFilter:  req.ModuleFilter,
 		YearFilter:    req.YearFilter,
+		Question:         req.Question,
+		VersionFilter:    req.VersionFilter,
+		YearFilter:       req.YearFilter,
+		SourceTypeFilter: "banner",
 	})
 	if err != nil {
-		log.Printf("RAG error: %v", err)
+		log.Printf("[banner/ask] error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	log.Printf("[banner/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
 	c.JSON(http.StatusOK, resp)
 }
 
 // ─── Ingestion ────────────────────────────────────────────────────────────────
-
 type ingestRequest struct {
-	DocsPath      string `json:"docs_path"`
 	Overwrite     bool   `json:"overwrite"`
+	DocsPath      string `json:"docs_path"`
 	PagesPerBatch int    `json:"pages_per_batch"`
 	StartPage     int    `json:"start_page"`
 	EndPage       int    `json:"end_page"`
 }
 
 func (h *Handler) Ingest(c *gin.Context) {
-	var req ingestRequest
 	_ = c.ShouldBindJSON(&req)
 	if req.DocsPath == "" {
 		req.DocsPath = "data/docs"
@@ -155,7 +154,7 @@ func (h *Handler) Ingest(c *gin.Context) {
 		req.PagesPerBatch = 10
 	}
 
-	log.Printf("Ingesting from %s (overwrite=%v, pages_per_batch=%d, start_page=%d, end_page=%d)",
+	log.Printf("[banner/ingest] path=%s overwrite=%v pages_per_batch=%d start=%d end=%d",
 		req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
 
 	result, err := ingest.Run(h.cfg, req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
@@ -166,7 +165,7 @@ func (h *Handler) Ingest(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// ─── Blob Storage ─────────────────────────────────────────────────────────────
+// ─── Banner — Blob Storage ────────────────────────────────────────────────────
 
 type blobSyncRequest struct {
 	ContainerName   string `json:"container_name"`
@@ -228,8 +227,8 @@ func (h *Handler) BlobSync(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Syncing blobs from container=%q prefix=%q", req.ContainerName, req.Prefix)
-	downloaded, err := blobClient.DownloadDocuments(req.Prefix, "data/docs", req.Overwrite)
+	log.Printf("[banner/blob/sync] container=%q prefix=%q", req.ContainerName, req.Prefix)
+	downloaded, err := blobClient.DownloadDocuments(req.Prefix, "data/docs/banner", req.Overwrite)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -242,7 +241,7 @@ func (h *Handler) BlobSync(c *gin.Context) {
 	}
 
 	if req.IngestAfterSync && len(downloaded) > 0 {
-		result, err := ingest.Run(h.cfg, "data/docs", req.Overwrite, req.PagesPerBatch, 0, 0)
+		result, err := ingest.Run(h.cfg, "data/docs/banner", req.Overwrite, req.PagesPerBatch, 0, 0)
 		if err != nil {
 			response["ingestion_error"] = err.Error()
 		} else {
@@ -254,7 +253,7 @@ func (h *Handler) BlobSync(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// ─── Summarizer ───────────────────────────────────────────────────────────────
+// ─── Banner — Summarizer ──────────────────────────────────────────────────────
 
 func (h *Handler) SummarizeChanges(c *gin.Context) {
 	h.handleSummarize(c, "changes")
@@ -282,7 +281,7 @@ func (h *Handler) SummarizeFull(c *gin.Context) {
 	summarizer := rag.NewSummarizer(h.openai, h.search)
 	result, err := summarizer.SummarizeFull(req)
 	if err != nil {
-		log.Printf("SummarizeFull error: %v", err)
+		log.Printf("[banner/summarize/full] error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -299,7 +298,12 @@ func (h *Handler) handleSummarize(c *gin.Context, topic string) {
 	summarizer := rag.NewSummarizer(h.openai, h.search)
 	result, err := summarizer.SummarizeTopic(req, topic)
 	if err != nil {
-		log.Printf("Summarize[%s] error: %v", topic, err)
+		log.Printf("[banner/summarize/%s] error: %v", topic, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

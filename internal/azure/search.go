@@ -86,13 +86,13 @@ func (c *SearchClient) CreateIndex() error {
 				"type":                "Collection(Edm.Single)",
 				"searchable":          true,
 				"dimensions":          1536,
-				"vectorSearchProfile": "banner-vector-profile",
+				"vectorSearchProfile": "omnivore-vector-profile",
 			},
 		},
 		"vectorSearch": map[string]any{
 			"algorithms": []map[string]any{
 				{
-					"name": "banner-hnsw",
+					"name": "omnivore-hnsw",
 					"kind": "hnsw",
 					"hnswParameters": map[string]any{
 						"metric":         "cosine",
@@ -104,8 +104,8 @@ func (c *SearchClient) CreateIndex() error {
 			},
 			"profiles": []map[string]any{
 				{
-					"name":      "banner-vector-profile",
-					"algorithm": "banner-hnsw",
+					"name":      "omnivore-vector-profile",
+					"algorithm": "omnivore-hnsw",
 				},
 			},
 		},
