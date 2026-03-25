@@ -74,19 +74,25 @@ One deliberate choice: **no official SDKs for OpenAI or Search**. The Azure Open
 
 ## The Architecture
 
-The system follows a clean, linear pipeline:
+The system follows two ingestion paths that converge at the same index, then a single query path:
 
 ```
-Banner PDFs (Blob Storage or local folder)
-              ↓
-        /ingest endpoint
-              ↓
-  Extract → Chunk → Embed → Index
-              ↓
-        /ask endpoint
-              ↓
+Banner PDFs                         SOP .docx files
+(Blob Storage or local folder)      (data/docs/sop/)
+        ↓                                   ↓
+  /ingest endpoint             /ingest endpoint
+        ↓                                   ↓
+Extract pages → Chunk        Extract paragraphs →
+(character-based)            Section-aware chunk +
+        ↓                    breadcrumb prefix
+        └──────────┬─────────┘
+                   ↓
+            Embed → Index
+                   ↓
+            /ask endpoint
+                   ↓
   Embed question → Hybrid Search → Retrieve top chunks
-              ↓
+                   ↓
   Build grounded prompt → GPT-4o-mini → Answer + sources
 ```
 
