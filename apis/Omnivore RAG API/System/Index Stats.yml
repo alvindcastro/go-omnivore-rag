@@ -8,6 +8,11 @@ http:
   url: "{{base_url}}/index/stats"
   auth: inherit
 
+runtime:
+  variables:
+    - name: base_url
+      value: http://localhost:8000
+
 settings:
   encodeUrl: true
   timeout: 0
