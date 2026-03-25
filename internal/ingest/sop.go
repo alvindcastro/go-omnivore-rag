@@ -2,8 +2,8 @@
 // Phase 2 — SOP metadata parser.
 // Extracts SOP number and title from a filename following the convention:
 //
-//	"SOP 122 Smoke Sanity Tests.docx"
-//	"SOP 154 Start Stop Axiom Server.docx"
+//	"SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx"
+//	"SOP154 - Procedure - Start, Stop Axiom.docx"
 package ingest
 
 import (
@@ -15,12 +15,13 @@ import (
 // sopMetadata holds the fields extracted from a SOP filename.
 type sopMetadata struct {
 	number string // e.g. "122"
-	title  string // e.g. "Smoke Sanity Tests"
+	title  string // e.g. "Smoke Test and Sanity Test Post Banner Upgrade"
 }
 
-// sopFilenameRegex matches "SOP <number> <title>" case-insensitively.
-// Separators between parts may be spaces or underscores.
-var sopFilenameRegex = regexp.MustCompile(`(?i)^SOP[\s_]+(\d+)[\s_]+(.+)$`)
+// sopFilenameRegex matches "SOP<number> - <title>" case-insensitively.
+// The number may be separated from "SOP" by an optional space or underscore,
+// and the title is separated by a dash (with surrounding whitespace).
+var sopFilenameRegex = regexp.MustCompile(`(?i)^SOP[\s_]*(\d+)\s*-\s*(.+)$`)
 
 // parseSopFilename extracts the SOP number and title from a file path.
 // Returns zero-value sopMetadata if the filename does not match the convention.
