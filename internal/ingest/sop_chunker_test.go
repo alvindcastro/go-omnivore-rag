@@ -33,6 +33,35 @@ func TestEffectiveHeadingLevel_StyledHeadings(t *testing.T) {
 	}
 }
 
+func TestEffectiveHeadingLevel_NumberedNormal(t *testing.T) {
+	cases := []struct {
+		text string
+		want int
+	}{
+		// Level 1 — top-level numbered sections (SOP154 style)
+		{"1. Purpose", 1},
+		{"2. Scope", 1},
+		{"6. Detailed Procedures", 1},
+		{"10. Appendix", 1},
+		// Level 2 — subsections
+		{"6.1 Access the Server (DEV or PROD)", 2},
+		{"6.2 Stopping Axiom", 2},
+		{"6.3 Starting Axiom", 2},
+		// Not matched — too long (> 80 chars)
+		{"1. This is a very long sentence that exceeds the eighty character threshold and should not be treated as a heading.", 0},
+		// Not matched — ListParagraph style (even if starts with number)
+		// (handled by style check in effectiveHeadingLevel — tested separately below)
+		// Not matched — no digit at start
+		{"TEST SUMMARY", 0},
+		{"Some body paragraph.", 0},
+	}
+	for _, c := range cases {
+		p := DocxParagraph{Style: "Normal", Text: c.text}
+		if got := effectiveHeadingLevel(p); got != c.want {
+			t.Errorf("effectiveHeadingLevel(Normal, %q) = %d, want %d", c.text, got, c.want)
+		}
+	}
+}
 
 func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
 	// ListParagraph items that start with a number should never be headings
