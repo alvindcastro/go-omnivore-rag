@@ -132,6 +132,75 @@ func (c *SearchClient) CreateIndex() error {
 	return nil
 }
 
+// SOPEntry is a deduplicated SOP record returned by ListSOPs.
+type SOPEntry struct {
+	SOPNumber     string `json:"sop_number"`
+	DocumentTitle string `json:"document_title"`
+}
+
+// ListSOPs returns one entry per unique SOP number indexed under source_type="sop",
+// sorted ascending by SOP number.
+func (c *SearchClient) ListSOPs() ([]SOPEntry, error) {
+	searchURL := fmt.Sprintf(
+		"%s/indexes/%s/docs/search?api-version=2024-03-01-Preview",
+		strings.TrimRight(c.cfg.AzureSearchEndpoint, "/"),
+		c.cfg.AzureSearchIndexName,
+	)
+
+	body := map[string]any{
+		"search": "*",
+		"filter": "source_type eq 'sop'",
+		"select": "sop_number,document_title",
+		"top":    1000,
+	}
+	payload, _ := json.Marshal(body)
+
+	req, _ := http.NewRequest(http.MethodPost, searchURL, bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("api-key", c.cfg.AzureSearchAPIKey)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("list sops http: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("list sops HTTP %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	var result struct {
+		Value []struct {
+			SOPNumber     string `json:"sop_number"`
+			DocumentTitle string `json:"document_title"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		return nil, fmt.Errorf("parse list sops response: %w", err)
+	}
+
+	// Deduplicate by sop_number, preserving first-seen title.
+	seen := make(map[string]bool)
+	var entries []SOPEntry
+	for _, v := range result.Value {
+		if v.SOPNumber == "" || seen[v.SOPNumber] {
+			continue
+		}
+		seen[v.SOPNumber] = true
+		entries = append(entries, SOPEntry{SOPNumber: v.SOPNumber, DocumentTitle: v.DocumentTitle})
+	}
+
+	// Sort ascending by SOP number (numeric).
+	for i := 1; i < len(entries); i++ {
+		for j := i; j > 0 && entries[j].SOPNumber < entries[j-1].SOPNumber; j-- {
+			entries[j], entries[j-1] = entries[j-1], entries[j]
+		}
+	}
+
+	return entries, nil
+}
+
 // GetDocumentCount returns the number of documents indexed.
 func (c *SearchClient) GetDocumentCount() (int64, error) {
 	url := fmt.Sprintf(
