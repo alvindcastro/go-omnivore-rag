@@ -72,6 +72,34 @@ func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
 	}
 }
 
+// ─── chunkSop ────────────────────────────────────────────────────────────────
+
+func TestChunkSop_CoverPageDiscarded(t *testing.T) {
+	meta := sopMetadata{number: "1", title: "Test"}
+	paras := []DocxParagraph{
+		{Style: "Company", Text: "Douglas College"},        // skip style
+		{Style: "InformationPage", Text: "Change History"}, // skip style
+		{Style: "Normal", Text: "Pre-heading body text"},   // before first heading — discard
+		{Style: "Heading1", Text: "Section One"},
+		{Style: "Normal", Text: "Section body"},
+	}
+
+	chunks := chunkSop(paras, meta)
+
+	if len(chunks) != 1 {
+		t.Fatalf("want 1 chunk, got %d", len(chunks))
+	}
+	if chunks[0].SectionTitle != "Section One" {
+		t.Errorf("SectionTitle: got %q, want %q", chunks[0].SectionTitle, "Section One")
+	}
+	if strings.Contains(chunks[0].Text, "Pre-heading body text") {
+		t.Error("cover page body should be discarded")
+	}
+	if strings.Contains(chunks[0].Text, "Douglas College") {
+		t.Error("skip-style content should be discarded")
+	}
+}
+
 func TestChunkSop_DeeperLevelClearedOnNewH1(t *testing.T) {
 	meta := sopMetadata{number: "1", title: "T"}
 	paras := []DocxParagraph{
