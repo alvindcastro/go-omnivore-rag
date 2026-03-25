@@ -13,30 +13,41 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 
 	h := NewHandler(cfg)
 
-	// System
+	// ── System ────────────────────────────────────────────────────────────────
 	router.GET("/health", h.Health)
 	router.GET("/index/stats", h.IndexStats)
 	router.POST("/index/create", h.CreateIndex)
-
-	// Debug
 	router.GET("/debug/chunks", h.ListChunks)
 
-	// RAG
-	router.POST("/ask", h.Ask)
+	// ── Banner ────────────────────────────────────────────────────────────────
+	banner := router.Group("/banner")
+	{
+		banner.POST("/ask", h.BannerAsk)
+		banner.POST("/ingest", h.BannerIngest)
 
-	// Ingestion
-	router.POST("/ingest", h.Ingest)
+		blob := banner.Group("/blob")
+		{
+			blob.GET("/list", h.BlobList)
+			blob.POST("/sync", h.BlobSync)
+		}
 
-	// Blob Storage
-	router.GET("/blob/list", h.BlobList)
-	router.POST("/blob/sync", h.BlobSync)
+		summarize := banner.Group("/summarize")
+		{
+			summarize.POST("/changes", h.SummarizeChanges)
+			summarize.POST("/breaking", h.SummarizeBreaking)
+			summarize.POST("/actions", h.SummarizeActions)
+			summarize.POST("/compatibility", h.SummarizeCompatibility)
+			summarize.POST("/full", h.SummarizeFull)
+		}
+	}
 
-	// Summarizer
-	router.POST("/summarize/changes", h.SummarizeChanges)
-	router.POST("/summarize/breaking", h.SummarizeBreaking)
-	router.POST("/summarize/actions", h.SummarizeActions)
-	router.POST("/summarize/compatibility", h.SummarizeCompatibility)
-	router.POST("/summarize/full", h.SummarizeFull)
+	// ── SOP ───────────────────────────────────────────────────────────────────
+	sop := router.Group("/sop")
+	{
+		sop.GET("", h.SopList)
+		sop.POST("/ask", h.SopAsk)
+		sop.POST("/ingest", h.SopIngest)
+	}
 
 	return router
 }
