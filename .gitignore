@@ -23,3 +23,7 @@ data/docs/**/*.md
 # Hugo build output
 blog/public/
 blog/resources/_gen/
+
+# Generated protobuf code (re-create with `buf generate`)
+gen/go/
+!gen/go/.gitkeep
