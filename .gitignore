@@ -17,6 +17,9 @@ data/docs/**/*.md
 .idea/
 *.iml
 
+# Claude Code - local settings are user-specific
+.claude/settings.local.json
+
 # Hugo build output
 blog/public/
 blog/resources/_gen/
