@@ -16,3 +16,7 @@ data/docs/*.md
 # GoLand IDE files
 .idea/
 *.iml
+
+# Hugo build output
+blog/public/
+blog/resources/_gen/

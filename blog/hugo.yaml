@@ -1,0 +1,96 @@
+baseURL: "https://alvindcastro.github.io/go-banner-rag/"
+languageCode: en-us
+title: "go-banner-rag"
+theme: PaperMod
+
+paginate: 10
+
+enableRobotsTXT: true
+buildDrafts: false
+buildFuture: false
+buildExpired: false
+
+minify:
+  disableXML: true
+  minifyOutput: true
+
+params:
+  env: production
+  title: "go-banner-rag"
+  description: "Building an AI-powered RAG assistant for Ellucian Banner ERP — a story about architecture, Go, Azure, and making PDF chaos disappear."
+  keywords: [Go, RAG, AI, Azure, OpenAI, "Vector Search", "Ellucian Banner", ERP]
+  author: Alvin D. Castro
+  DateFormat: "January 2, 2006"
+  defaultTheme: auto
+  disableThemeToggle: false
+
+  ShowReadingTime: true
+  ShowShareButtons: false
+  ShowPostNavLinks: true
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: true
+  ShowWordCount: false
+  ShowRssButtonInSectionTermList: true
+  UseHugoToc: true
+  disableSpecial1stPost: false
+  disableScrollToTop: false
+  comments: false
+  hidemeta: false
+  hideSummary: false
+  showtoc: true
+  tocopen: false
+
+  label:
+    text: "go-banner-rag"
+
+  homeInfoParams:
+    Title: "Building an AI Assistant for Banner ERP"
+    Content: >
+      A behind-the-scenes story of building **go-banner-rag** — a RAG system
+      that turns dense Ellucian Banner release-note PDFs into instant,
+      searchable answers. Written in Go. Powered by Azure OpenAI and Azure AI Search.
+
+  socialIcons:
+    - name: github
+      url: "https://github.com/alvindcastro/go-banner-rag"
+
+  cover:
+    hidden: false
+    hiddenInList: false
+    hiddenInSingle: false
+
+  editPost:
+    URL: "https://github.com/alvindcastro/go-banner-rag/tree/main/blog/content"
+    Text: "Suggest Changes"
+    appendFilePath: true
+
+  fuseOpts:
+    isCaseSensitive: false
+    shouldSort: true
+    location: 0
+    distance: 1000
+    threshold: 0.4
+    minMatchCharLength: 0
+    limit: 10
+    keys: ["title", "permalink", "summary", "content"]
+
+menu:
+  main:
+    - identifier: series
+      name: Series
+      url: /series/
+      weight: 10
+    - identifier: tags
+      name: Tags
+      url: /tags/
+      weight: 20
+    - identifier: github
+      name: GitHub
+      url: https://github.com/alvindcastro/go-banner-rag
+      weight: 30
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - JSON
