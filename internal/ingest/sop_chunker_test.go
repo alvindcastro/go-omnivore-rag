@@ -18,6 +18,49 @@ func TestEffectiveHeadingLevel_ListParagraphNotHeading(t *testing.T) {
 	}
 }
 
+func TestChunkSop_EmptyBodySkipped(t *testing.T) {
+	// A heading immediately followed by another heading should not emit an empty chunk.
+	meta := sopMetadata{number: "1", title: "T"}
+	paras := []DocxParagraph{
+		{Style: "Heading1", Text: "H1"},
+		{Style: "Heading2", Text: "H2"}, // no body between H1 and H2
+		{Style: "Normal", Text: "actual content"},
+	}
+
+	chunks := chunkSop(paras, meta)
+
+	if len(chunks) != 1 {
+		t.Fatalf("want 1 chunk (empty H1 body skipped), got %d: %v", len(chunks), chunkTitles(chunks))
+	}
+	assertContains(t, chunks[0].Text, "actual content")
+}
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+func assertContains(t *testing.T, s, sub string) {
+	t.Helper()
+	if !strings.Contains(s, sub) {
+		t.Errorf("expected to contain %q\ngot: %s", sub, s)
+	}
+}
+
+func assertNotContains(t *testing.T, s, sub string) {
+	t.Helper()
+	if strings.Contains(s, sub) {
+		t.Errorf("expected NOT to contain %q\ngot: %s", sub, s)
+	}
+}
+
+func chunkTitles(chunks []SopChunk) []string {
+	titles := make([]string, len(chunks))
+	for i, c := range chunks {
+		titles[i] = c.SectionTitle
+	}
+	return titles
+}
+
+// ─── Real-file integration test ───────────────────────────────────────────────
+
 func TestChunkSop_RealFiles(t *testing.T) {
 	files := []string{
 		"../../data/docs/sop/SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx",
