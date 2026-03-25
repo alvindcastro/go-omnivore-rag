@@ -6,5 +6,75 @@ info:
     (SOPs), backed by Azure OpenAI and Azure Cognitive Search.
   title: go-omnivore-rag API
   version: "1.0"
-paths: {}
+paths:
+  /debug/chunks:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List up to 50 indexed document chunks
+      tags:
+      - system
+  /health:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Service health check
+      tags:
+      - system
+  /index/create:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create the Azure Search index
+      tags:
+      - system
+  /index/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Azure Search index statistics
+      tags:
+      - system
 swagger: "2.0"
