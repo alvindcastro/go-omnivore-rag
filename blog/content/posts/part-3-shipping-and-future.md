@@ -115,9 +115,25 @@ Bruno stores collections as plain files in the project repository — not in a p
 
 Small things that reduce friction compound over time.
 
+## What's Been Built Since
+
+### SOP Document Support
+
+After the Banner pipeline was stable, a second document type entered the picture: Standard Operating Procedures in Word format.
+
+SOPs answer a different kind of question than release notes — not *"what changed?"* but *"how do I actually do this?"* They required a different ingestion path: DOCX extraction without an external library, section-aware chunking at heading boundaries, and breadcrumb prefixes so every chunk is self-describing when retrieved in isolation.
+
+The result is that a query like *"how do I stop Axiom?"* retrieves the exact numbered steps from the relevant SOP section, with full context about which SOP and which section they came from. The same index serves both document types. SOP chunks are filterable by `source_type: "sop"`.
+
+This was the "structure-aware chunking" item from the original roadmap, shipped for SOP documents.
+
 ## What Comes Next
 
-The system works well for its primary purpose. Several directions are worth building next.
+### Structure-Aware Chunking for Banner PDFs
+
+The SOP chunker works against Word paragraph styles and numbered headings. Banner PDFs don't have that structure — they are rendered text with no semantic markup.
+
+Improving retrieval quality for compatibility questions (where the relevant information is often in a dense version matrix) would require recognizing table structures in the extracted text and keeping them intact across chunk boundaries. This remains an open problem for the PDF path.
 
 ### Multi-Document Diffing
 
@@ -137,12 +153,6 @@ Right now the system is an API. Every interaction goes through a REST client. A 
 
 Go can serve HTML. The frontend does not need to be complex. It needs to be accessible.
 
-### Structure-Aware Chunking
-
-The current chunker is character-based with sentence-boundary awareness. Banner release notes have internal structure — numbered sections, tables, prerequisite lists — that the chunker ignores.
-
-A structure-aware chunker that recognizes section headers and keeps version matrices intact would improve retrieval quality for compatibility questions, where the relevant information is often in a dense table of version requirements.
-
 ### Evaluation Harness
 
 It is currently difficult to measure whether a change to chunk size, overlap, top-K, or prompt text makes answers better or worse. There is no systematic feedback loop.
@@ -161,7 +171,7 @@ The problem this project addresses — people spending time reading documents to
 
 The architecture is not novel. RAG has been a known pattern for several years. What makes this project useful is how directly a small amount of well-organized code maps to a real reduction in time spent on a tedious task.
 
-The system is roughly 2,000 lines of Go. Four direct dependencies. Runs anywhere Docker runs. Costs almost nothing on Azure's free tier for low-volume usage.
+Four direct dependencies. Runs anywhere Docker runs. Costs almost nothing on Azure's free tier for low-volume usage.
 
 The hardest part was not the code. It was figuring out exactly what questions people actually needed answered.
 

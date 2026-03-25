@@ -9,7 +9,7 @@ draft: false
 weight: 1
 ---
 
-It's a tool that reads Banner release notes so your team doesn't have to. Drop a PDF in, ask it a question — *"what do I need to do before this upgrade?"* — and it pulls the answer straight from the document with a source citation. No hallucinations, no guessing. Just the relevant paragraph, found in seconds.
+It's a tool that reads Banner release notes and SOPs so your team doesn't have to. Drop a PDF or Word document in, ask it a question — *"what do I need to do before this upgrade?"* — and it pulls the answer straight from the document with a source citation. No hallucinations, no guessing. Just the relevant paragraph, found in seconds.
 
 ## What Banner admins actually care about
 
@@ -24,7 +24,7 @@ These are the real risks that make every upgrade stressful — and exactly what 
 ---
 
 > **Built in Go. Powered by Azure OpenAI + Azure AI Search.**
-> No frameworks. No hallucinations. ~2k lines of Go.
+> No frameworks. No hallucinations.
 > [github.com/alvindcastro/go-omnivore-rag](https://github.com/alvindcastro/go-omnivore-rag)
 
 ---
