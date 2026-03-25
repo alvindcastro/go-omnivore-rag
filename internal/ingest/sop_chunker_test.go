@@ -100,6 +100,43 @@ func TestChunkSop_CoverPageDiscarded(t *testing.T) {
 	}
 }
 
+func TestChunkSop_BreadcrumbHierarchy(t *testing.T) {
+	meta := sopMetadata{number: "99", title: "My SOP"}
+	paras := []DocxParagraph{
+		{Style: "Heading1", Text: "Chapter One"},
+		{Style: "Normal", Text: "Intro"},
+		{Style: "Heading2", Text: "Sub A"},
+		{Style: "Normal", Text: "Step 1"},
+		{Style: "Heading2", Text: "Sub B"},
+		{Style: "Normal", Text: "Step 2"},
+		{Style: "Heading1", Text: "Chapter Two"},
+		{Style: "Normal", Text: "New chapter body"},
+	}
+
+	chunks := chunkSop(paras, meta)
+
+	// Expected: H1 intro, Sub A, Sub B, Chapter Two
+	if len(chunks) != 4 {
+		t.Fatalf("want 4 chunks, got %d: %v", len(chunks), chunkTitles(chunks))
+	}
+
+	// H1 chunk carries only H1 in breadcrumb
+	assertContains(t, chunks[0].Text, "[SOP 99 — My SOP] > Chapter One")
+	assertNotContains(t, chunks[0].Text, "Sub A")
+
+	// H2 chunk carries H1 > H2
+	assertContains(t, chunks[1].Text, "[SOP 99 — My SOP] > Chapter One > Sub A")
+	assertContains(t, chunks[1].Text, "Step 1")
+
+	// Second H2 — H1 context preserved, H2 updated
+	assertContains(t, chunks[2].Text, "[SOP 99 — My SOP] > Chapter One > Sub B")
+	assertContains(t, chunks[2].Text, "Step 2")
+
+	// New H1 — deeper levels cleared
+	assertContains(t, chunks[3].Text, "[SOP 99 — My SOP] > Chapter Two")
+	assertNotContains(t, chunks[3].Text, "Sub B")
+}
+
 func TestChunkSop_DeeperLevelClearedOnNewH1(t *testing.T) {
 	meta := sopMetadata{number: "1", title: "T"}
 	paras := []DocxParagraph{
