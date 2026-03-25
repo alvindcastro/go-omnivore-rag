@@ -138,6 +138,83 @@ for attempt := 0; attempt < 3; attempt++ {
 
 Three attempts. Fifteen-second wait on HTTP 429s. Simple and sufficient.
 
+## The SOP Pipeline
+
+After the Banner ingestion pipeline was working, a second document type entered the picture: Standard Operating Procedures.
+
+SOPs live in a different world from release notes. Where a Banner PDF arrives once per module per release and contains structured, predictable content, a SOP is a Word document with a procedural structure: numbered sections, sub-steps, assumptions, references. They answer a different kind of question — not *"what changed?"* but *"how do I actually do this?"*
+
+Two things were immediately clear: SOPs needed their own ingestion path, and the existing character-based chunker was the wrong tool for them.
+
+### Reading Word Documents Without a Library
+
+`.docx` files are ZIP archives. Inside every `.docx` is a file called `word/document.xml`, which is OOXML — a verbose XML format that represents the document's paragraphs, runs, and styles.
+
+Rather than pulling in an external Word parsing library, `docx.go` opens the ZIP directly and reads the XML with a token-based decoder from `encoding/xml`. No external dependencies. Each paragraph is parsed into a `DocxParagraph` that preserves the paragraph's style name, whether it belongs to a numbered list, and its indent level:
+
+```go
+type DocxParagraph struct {
+    Style      string // "Heading1", "Heading2", "Normal", "ListParagraph"
+    Text       string
+    IsNumbered bool
+    NumLevel   int // 0-based; 0 = top-level list item
+}
+```
+
+Legacy `.doc` files — the pre-2007 binary format — return a clear error and are skipped. The fix is always the same: save as `.docx` and re-ingest.
+
+### Section-Aware Chunking
+
+The Banner chunker cuts on character boundaries. That is the right choice for dense PDFs where content flows continuously across sections.
+
+SOPs have explicit structure. A section heading like *"6. Detailed Procedures"* is a logical boundary. Everything below it until the next heading belongs together. A character-based chunker might slice a numbered step across chunks, losing the step's context. A section-aware chunker never does.
+
+`sop_chunker.go` walks the parsed paragraphs and opens a new chunk at every heading. When a chunk is flushed, the accumulated body text goes into a `SopChunk` alongside the document's full heading hierarchy:
+
+```go
+type SopChunk struct {
+    SOPNumber     string
+    DocumentTitle string
+    SectionTitle  string
+    Text          string // breadcrumb + body, ready for embedding
+}
+```
+
+### Breadcrumbs
+
+The most important detail is the breadcrumb prepended to every chunk's text before embedding:
+
+```
+[SOP 154 — Procedure - Start, Stop Axiom] > 6. Detailed Procedures > 6.2 Stopping Axiom
+
+Open the Axiom web interface at https://axiom.internal and navigate to...
+```
+
+This matters because retrieval is chunk-level. When a chunk lands in the model's context, the model sees only that chunk — not the heading that introduced it three paragraphs earlier, not the document title it came from. The breadcrumb puts that context back.
+
+Every SOP chunk is self-describing. You can hand any chunk to the model in isolation and it knows exactly which document and section it is from.
+
+### Two Heading Styles
+
+Real SOPs are not always written the same way. Testing against actual SOP documents revealed two distinct styles:
+
+- **Styled documents** — headings are tagged with Word paragraph styles: `Heading1`, `Heading2`, `Heading3`. The chunker reads the style directly.
+- **Plain documents** — headings are `Normal` paragraphs that start with a numbered prefix like `6.2 Stopping Axiom`. The chunker detects these with a regex and a length guard (≤80 characters, so it does not misclassify long body sentences that happen to start with a number).
+
+Both styles produce the same output. The detection logic lives in a single function — `effectiveHeadingLevel` — which returns a depth for any paragraph regardless of which style it uses.
+
+### Cover-Page Stripping
+
+Word documents include paragraphs that carry document metadata rather than procedural content: company name, change history table headers, table of contents entries. Indexing these would pollute retrieval — a search for "6.2 Stopping Axiom" should not return a table-of-contents entry that references it.
+
+A small denylist of style names (`Company`, `Project`, `TOC1`, `TOC2`, `TOCHeading`, etc.) causes these paragraphs to be skipped before any chunk is built.
+
+### A Separate Index Lane
+
+SOP chunks are indexed with `source_type: "sop"` alongside `sop_number` and `document_title`. This makes them filterable independently from Banner release notes. A query about an upgrade procedure can search across both. A query scoped to SOPs excludes release notes entirely.
+
+The routing decision happens in `ingestFile`: if the file path contains `/docs/sop/`, it goes to `ingestSopFile`. Otherwise it takes the standard page-based path.
+
 ## The Result
 
 A functional analyst who previously opened a PDF and started scanning for the compatibility section can now send this:

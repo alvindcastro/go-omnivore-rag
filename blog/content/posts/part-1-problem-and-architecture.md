@@ -51,11 +51,13 @@ The question was not *whether* to use RAG. The question was *how to build it cle
 
 The first whiteboard session produced three non-negotiables:
 
-**1. PDFs as-is.** No preprocessing pipeline, no manual reformatting. Drop a file in a folder, ingest it, done.
+**1. Documents as-is.** No preprocessing pipeline, no manual reformatting. Drop a file in a folder, ingest it, done. This expanded over time to include Word documents (`.docx`) for Standard Operating Procedures, in addition to the original PDF release notes.
 
-**2. Automatic metadata.** Banner release notes have a predictable naming convention (`Banner_<Module>_Release_Notes_<version>_<date>.pdf`) and live inside a predictable folder structure (`/docs/general/2026/`). The system should extract module, version, and year without anyone filling out a form.
+**2. Automatic metadata.** Banner release notes have a predictable naming convention (`Banner_<Module>_Release_Notes_<version>_<date>.pdf`) and live inside a predictable folder structure (`/docs/general/2026/`). The system should extract module, version, and year without anyone filling out a form. SOPs follow their own convention — `SOP122 - Smoke Test Post Banner Upgrade.docx` — and their metadata is parsed from the filename.
 
 **3. Hybrid search.** Pure vector search is good at semantic similarity but struggles with exact version numbers. Pure keyword search misses paraphrase. You need both.
+
+**4. Context-preserving chunks.** A retrieved chunk must make sense in isolation. For PDFs this means clean boundary detection. For SOPs this means breadcrumb prefixes that embed the document title and section hierarchy directly into each chunk's text before it is ever embedded or indexed.
 
 ## The Stack
 
