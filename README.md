@@ -56,7 +56,10 @@ go-omnivore-rag/
 │   │   ├── search.go                  ← Azure AI Search REST client (index + search)
 │   │   └── blob.go                    ← Azure Blob Storage SDK client
 │   ├── ingest/
-│   │   └── ingest.go                  ← PDF parse → chunk → embed → index pipeline
+│   │   ├── ingest.go                  ← PDF/TXT/MD parse → chunk → embed → index pipeline
+│   │   ├── docx.go                    ← DOCX paragraph extractor (no external deps)
+│   │   ├── sop.go                     ← SOP filename/metadata parser
+│   │   └── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
 │   ├── rag/
 │   │   ├── rag.go                     ← RAG pipeline (retrieve + generate)
 │   │   └── summarize.go               ← Summarization pipeline (4 focused topics)
@@ -302,7 +305,41 @@ data/docs/
     └── <your-sop-documents>
 ```
 
-**Supported file types:** `.pdf`, `.txt`, `.md`
+**Supported file types:** `.pdf`, `.txt`, `.md`, `.docx`
+
+> **Note:** Legacy `.doc` files are not supported. Save them as `.docx` before ingesting.
+
+---
+
+## SOP Document Ingestion
+
+Files under `data/docs/sop/` are processed through a dedicated section-aware pipeline instead of the standard page-based chunker.
+
+**Filename convention** (required for auto-detection):
+```
+SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
+SOP154 - Procedure - Start, Stop Axiom.docx
+```
+
+The SOP number and title are extracted from the filename. Files that don't match the `SOP<N> - <Title>` pattern are skipped with a warning.
+
+**How SOP chunking works:**
+
+SOPs are split at every section heading. Each chunk is prefixed with a breadcrumb so the model always knows which SOP and section it came from, even when retrieved in isolation:
+
+```
+[SOP 154 — Procedure - Start, Stop Axiom] > 6. Detailed Procedures > 6.2 Stopping Axiom
+
+<body text for this section>
+```
+
+Two heading styles are handled automatically:
+- **Styled** — `Heading1` / `Heading2` / `Heading3` / `Heading4` Word paragraph styles (e.g. SOP122)
+- **Plain** — `Normal` paragraphs with numbered prefixes like `6.2 Stopping Axiom` (e.g. SOP154)
+
+Cover-page furniture (company info, change history tables, table of contents) is stripped before chunking.
+
+SOP chunks are indexed with `source_type: "sop"` alongside the SOP number and document title, making them filterable independently from Banner release notes.
 
 ---
 
@@ -353,9 +390,11 @@ LOG_LEVEL=info
 
 - Azure OpenAI and Azure AI Search use **direct REST calls** (no official Go SDK) — intentional for transparency and learning
 - Azure Blob Storage uses the **official Go SDK**
-- Chunking uses character-based splitting with sentence boundary detection
+- DOCX parsing uses only `archive/zip` and `encoding/xml` — no external Word library required
+- Banner PDFs use character-based chunking with sentence boundary detection
+- SOP `.docx` files use section-aware chunking — each heading opens a new chunk with a breadcrumb prefix
 - Hybrid search combines **vector similarity** (semantic) + **BM25 keyword** search
-- Module and version are **auto-detected** from folder name and filename
+- Banner module and version are **auto-detected** from folder name and filename
 - Year is **auto-detected** from the folder path (e.g. `2026/`)
 
 ---
