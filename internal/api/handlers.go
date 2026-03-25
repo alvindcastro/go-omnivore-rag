@@ -97,7 +97,7 @@ func (h *Handler) ListChunks(c *gin.Context) {
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
 
-type askRequest struct {
+type bannerAskRequest struct {
 	Question      string `json:"question"       binding:"required,min=5"`
 	TopK          int    `json:"top_k"`
 	VersionFilter string `json:"version_filter"`
@@ -105,7 +105,8 @@ type askRequest struct {
 	YearFilter    string `json:"year_filter"`
 }
 
-func (h *Handler) Ask(c *gin.Context) {
+func (h *Handler) BannerAsk(c *gin.Context) {
+	var req bannerAskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -118,11 +119,10 @@ func (h *Handler) Ask(c *gin.Context) {
 		req.Question, req.TopK, req.VersionFilter, req.ModuleFilter, req.YearFilter)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
-		Question:      req.Question,
-		VersionFilter: req.VersionFilter,
-		YearFilter:    req.YearFilter,
 		Question:         req.Question,
+		TopK:             req.TopK,
 		VersionFilter:    req.VersionFilter,
+		ModuleFilter:     req.ModuleFilter,
 		YearFilter:       req.YearFilter,
 		SourceTypeFilter: "banner",
 	})
@@ -136,8 +136,7 @@ func (h *Handler) Ask(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// ─── Ingestion ────────────────────────────────────────────────────────────────
-type ingestRequest struct {
+type bannerIngestRequest struct {
 	Overwrite     bool   `json:"overwrite"`
 	DocsPath      string `json:"docs_path"`
 	PagesPerBatch int    `json:"pages_per_batch"`
@@ -145,10 +144,11 @@ type ingestRequest struct {
 	EndPage       int    `json:"end_page"`
 }
 
-func (h *Handler) Ingest(c *gin.Context) {
+func (h *Handler) BannerIngest(c *gin.Context) {
+	var req bannerIngestRequest
 	_ = c.ShouldBindJSON(&req)
 	if req.DocsPath == "" {
-		req.DocsPath = "data/docs"
+		req.DocsPath = "data/docs/banner"
 	}
 	if req.PagesPerBatch == 0 {
 		req.PagesPerBatch = 10
@@ -304,8 +304,68 @@ func (h *Handler) handleSummarize(c *gin.Context, topic string) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+// ─── SOP ──────────────────────────────────────────────────────────────────────
+
+type sopAskRequest struct {
+	Question string `json:"question" binding:"required,min=5"`
+	TopK     int    `json:"top_k"`
+}
+
+func (h *Handler) SopAsk(c *gin.Context) {
+	var req sopAskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.TopK == 0 {
+		req.TopK = h.cfg.TopKDefault
+	}
+
+	log.Printf("[sop/ask] Q: %q | top_k=%d", req.Question, req.TopK)
+
+	resp, err := h.pipeline.Ask(rag.AskRequest{
+		Question:         req.Question,
+		TopK:             req.TopK,
+		SourceTypeFilter: "sop",
+	})
+	if err != nil {
+		log.Printf("[sop/ask] error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[sop/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	c.JSON(http.StatusOK, resp)
+}
+
+type sopIngestRequest struct {
+	Overwrite bool `json:"overwrite"`
+}
+
+func (h *Handler) SopIngest(c *gin.Context) {
+	var req sopIngestRequest
+	_ = c.ShouldBindJSON(&req)
+
+	const sopPath = "data/docs/sop"
+	log.Printf("[sop/ingest] path=%s overwrite=%v", sopPath, req.Overwrite)
+
+	result, err := ingest.Run(h.cfg, sopPath, req.Overwrite, 0, 0, 0)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *Handler) SopList(c *gin.Context) {
+	entries, err := h.search.ListSOPs()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"count": len(entries),
+		"sops":  entries,
+	})
 }
