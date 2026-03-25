@@ -9,9 +9,9 @@ omnivore-rag
 vendor/
 
 # Input documents - store in Azure Blob instead
-data/docs/*.pdf
-data/docs/*.txt
-data/docs/*.md
+data/docs/**/*.pdf
+data/docs/**/*.txt
+data/docs/**/*.md
 
 # GoLand IDE files
 .idea/

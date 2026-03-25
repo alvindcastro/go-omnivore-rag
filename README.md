@@ -147,9 +147,9 @@ POST http://localhost:8000/index/create
 
 Create the folder structure and drop your PDFs in:
 ```
-data/docs/general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
-data/docs/finance/2026/february/Banner_Finance_9.3.22_ReleaseNotes.pdf
-data/docs/student/2026/february/Banner_Student_9.39_ReleaseNotes.pdf
+data/docs/banner/general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
+data/docs/banner/finance/2026/february/Banner_Finance_9.3.22_ReleaseNotes.pdf
+data/docs/sop/your-procedure.pdf
 ```
 
 **Naming convention** (for auto-detection of module and version):
@@ -277,26 +277,29 @@ All filter fields are optional — omit any you don't need.
 
 ## Document Folder Structure
 
-Organize your Banner PDFs by module, year, and month. The ingestion pipeline automatically detects module and version from the folder path and filename:
+Documents are organized under `data/docs/` by input type. The ingestion pipeline automatically detects module and version from the folder path and filename:
 
 ```
 data/docs/
-├── general/
-│   └── 2026/
-│       └── february/
-│           └── Banner_General_9.3.37.2_ReleaseNotes.pdf
-├── finance/
-│   └── 2026/
-│       └── february/
-│           └── Banner_Finance_9.3.22_ReleaseNotes.pdf
-├── student/
-│   └── 2026/
-│       └── february/
-│           └── Banner_Student_9.39_ReleaseNotes.pdf
-└── hr/
-    └── 2026/
-        └── february/
-            └── Banner_HR_9.28_ReleaseNotes.pdf
+├── banner/                          # Ellucian Banner release notes
+│   ├── general/
+│   │   └── 2026/
+│   │       └── february/
+│   │           └── Banner_General_9.3.37.2_ReleaseNotes.pdf
+│   ├── finance/
+│   │   └── 2026/
+│   │       └── february/
+│   │           └── Banner_Finance_9.3.22_ReleaseNotes.pdf
+│   ├── student/
+│   │   └── 2026/
+│   │       └── february/
+│   │           └── Banner_Student_9.39_ReleaseNotes.pdf
+│   └── hr/
+│       └── 2026/
+│           └── february/
+│               └── Banner_HR_9.28_ReleaseNotes.pdf
+└── sop/                             # Standard Operating Procedures
+    └── <your-sop-documents>
 ```
 
 **Supported file types:** `.pdf`, `.txt`, `.md`
