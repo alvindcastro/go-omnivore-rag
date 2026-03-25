@@ -56,7 +56,7 @@ func Load() *Config {
 		// Azure AI Search
 		AzureSearchEndpoint:  requireEnv("AZURE_SEARCH_ENDPOINT"),
 		AzureSearchAPIKey:    requireEnv("AZURE_SEARCH_API_KEY"),
-		AzureSearchIndexName: getEnv("AZURE_SEARCH_INDEX_NAME", "banner-upgrade-knowledge"),
+		AzureSearchIndexName: getEnv("AZURE_SEARCH_INDEX_NAME", "omnivore-knowledge"),
 
 		// Azure Blob Storage
 		AzureStorageConnectionString: getEnv("AZURE_STORAGE_CONNECTION_STRING", ""),
