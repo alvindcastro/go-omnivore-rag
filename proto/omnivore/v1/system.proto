@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package omnivore.v1;
+
+option go_package = "go-omnivore-rag/gen/go/omnivore/v1;omnivorev1";
+
+service SystemService {
+  rpc Health      (HealthRequest)      returns (HealthResponse);
+  rpc IndexStats  (IndexStatsRequest)  returns (IndexStatsResponse);
+  rpc CreateIndex (CreateIndexRequest) returns (CreateIndexResponse);
+}
+
+message HealthRequest {}
+message HealthResponse {
+  string status          = 1;
+  string index_name      = 2;
+  string chat_model      = 3;
+  string embedding_model = 4;
+}
+
+message IndexStatsRequest {}
+message IndexStatsResponse {
+  string index_name      = 1;
+  int64  document_count  = 2;
+  string status          = 3;
+}
+
+message CreateIndexRequest {}
+message CreateIndexResponse {
+  string status     = 1;
+  string index_name = 2;
+}

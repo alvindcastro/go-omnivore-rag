@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package omnivore.v1;
+
+option go_package = "go-omnivore-rag/gen/go/omnivore/v1;omnivorev1";
+
+// Shared response types used by both Banner and SOP services.
+
+message SourceChunk {
+  string filename       = 1;
+  int32  page_number    = 2;
+  string chunk_text     = 3;
+  float  score          = 4;
+  string source_type    = 5;
+  string sop_number     = 6;
+  string document_title = 7;
+  string banner_module  = 8;
+  string banner_version = 9;
+}
+
+message AskResponse {
+  string              answer           = 1;
+  int32               retrieval_count  = 2;
+  repeated SourceChunk sources         = 3;
+}
+
+message IngestResponse {
+  string status               = 1;
+  int32  documents_processed  = 2;
+  int32  chunks_indexed       = 3;
+  string message              = 4;
+}
+
+message SummarizeResponse {
+  string summary      = 1;
+  string version      = 2;
+  string module       = 3;
+  int32  source_count = 4;
+}

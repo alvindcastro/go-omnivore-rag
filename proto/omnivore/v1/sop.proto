@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package omnivore.v1;
+
+option go_package = "go-omnivore-rag/gen/go/omnivore/v1;omnivorev1";
+
+import "omnivore/v1/common.proto";
+
+service SOPService {
+  rpc Ask    (SOPAskRequest)    returns (AskResponse);
+  rpc Ingest (SOPIngestRequest) returns (IngestResponse);
+  rpc List   (SOPListRequest)   returns (SOPListResponse);
+}
+
+message SOPAskRequest {
+  string question = 1;
+  int32  top_k    = 2;
+}
+
+message SOPIngestRequest {
+  bool overwrite = 1;
+}
+
+message SOPListRequest {}
+
+message SOPEntry {
+  string sop_number   = 1;
+  string title        = 2;
+  int32  chunk_count  = 3;
+}
+
+message SOPListResponse {
+  int32            count = 1;
+  repeated SOPEntry sops = 2;
+}

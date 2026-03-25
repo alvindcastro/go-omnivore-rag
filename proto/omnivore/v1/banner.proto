@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package omnivore.v1;
+
+option go_package = "go-omnivore-rag/gen/go/omnivore/v1;omnivorev1";
+
+import "omnivore/v1/common.proto";
+
+service BannerService {
+  rpc Ask                  (BannerAskRequest)    returns (AskResponse);
+  rpc Ingest               (BannerIngestRequest) returns (IngestResponse);
+  rpc BlobList             (BlobListRequest)     returns (BlobListResponse);
+  rpc BlobSync             (BlobSyncRequest)     returns (BlobSyncResponse);
+  rpc SummarizeChanges     (SummarizeRequest)    returns (SummarizeResponse);
+  rpc SummarizeBreaking    (SummarizeRequest)    returns (SummarizeResponse);
+  rpc SummarizeActions     (SummarizeRequest)    returns (SummarizeResponse);
+  rpc SummarizeCompatibility (SummarizeRequest)  returns (SummarizeResponse);
+  rpc SummarizeFull        (SummarizeRequest)    returns (SummarizeResponse);
+}
+
+message BannerAskRequest {
+  string question       = 1;
+  int32  top_k          = 2;
+  string version_filter = 3;
+  string module_filter  = 4;
+  string year_filter    = 5;
+}
+
+message BannerIngestRequest {
+  bool   overwrite       = 1;
+  string docs_path       = 2;
+  int32  pages_per_batch = 3;
+  int32  start_page      = 4;
+  int32  end_page        = 5;
+}
+
+message BlobListRequest {
+  string prefix = 1;
+}
+
+message BlobListResponse {
+  string          container_name  = 1;
+  int32           document_count  = 2;
+  repeated string documents       = 3;
+}
+
+message BlobSyncRequest {
+  string container_name  = 1;
+  string prefix          = 2;
+  bool   overwrite       = 3;
+  int32  pages_per_batch = 4;
+}
+
+message BlobSyncResponse {
+  string          status            = 1;
+  int32           files_downloaded  = 2;
+  repeated string downloaded_paths  = 3;
+  IngestResponse  ingestion         = 4;
+  string          message           = 5;
+}
+
+message SummarizeRequest {
+  string version = 1;
+  string module  = 2;
+  int32  top_k   = 3;
+}

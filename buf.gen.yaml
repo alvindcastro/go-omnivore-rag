@@ -1,0 +1,14 @@
+version: v2
+
+plugins:
+  # Generates *.pb.go (message types)
+  - remote: buf.build/protocolbuffers/go
+    out: gen/go
+    opt:
+      - paths=source_relative
+
+  # Generates *_grpc.pb.go (service interfaces + client stubs)
+  - remote: buf.build/grpc/go
+    out: gen/go
+    opt:
+      - paths=source_relative
