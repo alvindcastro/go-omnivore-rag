@@ -45,7 +45,6 @@ func Run(cfg *config.Config, docsPath string, overwrite bool, pagesPerBatch int,
 	}
 
 	// Collect supported files
-	supported := map[string]bool{".pdf": true, ".txt": true, ".md": true}
 	var files []string
 	err := filepath.Walk(docsPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
