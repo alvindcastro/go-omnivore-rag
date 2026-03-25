@@ -224,6 +224,7 @@ type SearchResult struct {
 }
 
 // HybridSearch runs keyword + vector search and returns the top-K results.
+// sourceTypeFilter scopes results to "banner" or "sop"; empty searches everything.
 func (c *SearchClient) HybridSearch(
 	queryText string,
 	queryVector []float32,
@@ -231,6 +232,7 @@ func (c *SearchClient) HybridSearch(
 	versionFilter string,
 	moduleFilter string,
 	yearFilter string,
+	sourceTypeFilter string,
 ) ([]SearchResult, error) {
 	url := fmt.Sprintf(
 		"%s/indexes/%s/docs/search?api-version=2024-03-01-Preview",
@@ -241,7 +243,7 @@ func (c *SearchClient) HybridSearch(
 	searchBody := map[string]any{
 		"search": queryText, // BM25 keyword leg
 		"top":    topK,
-		"select": "id,filename,page_number,banner_module,banner_version,year,chunk_text",
+		"select": "id,filename,page_number,banner_module,banner_version,year,source_type,sop_number,document_title,chunk_text",
 		"vectorQueries": []map[string]any{
 			{
 				"kind":   "vector",
@@ -254,6 +256,9 @@ func (c *SearchClient) HybridSearch(
 
 	// Build OData filter
 	filters := []string{}
+	if sourceTypeFilter != "" {
+		filters = append(filters, fmt.Sprintf("source_type eq '%s'", sourceTypeFilter))
+	}
 	if versionFilter != "" {
 		filters = append(filters, fmt.Sprintf("banner_version eq '%s'", versionFilter))
 	}
@@ -263,7 +268,7 @@ func (c *SearchClient) HybridSearch(
 		filters = append(filters, fmt.Sprintf("banner_module eq '%s'", moduleFilter))
 	}
 	if yearFilter != "" {
-		filters = append(filters, fmt.Sprintf("year eq '%s'", yearFilter)) // add this
+		filters = append(filters, fmt.Sprintf("year eq '%s'", yearFilter))
 	}
 	if len(filters) > 0 {
 		searchBody["filter"] = strings.Join(filters, " and ")

@@ -223,6 +223,7 @@ func (s *Summarizer) retrieveChunks(req SummarizeRequest, query string) ([]azure
 		req.BannerVersion,
 		req.BannerModule,
 		req.YearFilter,
+		"banner", // summarizer is Banner-specific
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("search failed: %w", err)
