@@ -127,6 +127,41 @@ func TestChunkSop_DeeperLevelClearedOnNewH1(t *testing.T) {
 	assertNotContains(t, partBChunk.Text, "Detail")
 }
 
+func TestChunkSop_NumberedNormalStyle(t *testing.T) {
+	// Simulates SOP154 which uses Normal paragraphs as section headers
+	meta := sopMetadata{number: "154", title: "Start Stop Axiom"}
+	paras := []DocxParagraph{
+		{Style: "Normal", Text: "1. Purpose"},
+		{Style: "Normal", Text: "This SOP provides steps."},
+		{Style: "Normal", Text: "6. Detailed Procedures"},
+		{Style: "Normal", Text: "6.1 Access the Server"},
+		{Style: "Normal", Text: "- DEV: 10.0.0.1"},
+		{Style: "Normal", Text: "6.2 Stopping Axiom"},
+		{Style: "Normal", Text: "- Notify team."},
+		{Style: "Normal", Text: "- Stop services."},
+	}
+
+	chunks := chunkSop(paras, meta)
+
+	// Expected: 3 chunks.
+	// "6. Detailed Procedures" has no body before "6.1", so it emits no chunk of its own —
+	// it only contributes to the breadcrumb of subsections.
+	if len(chunks) != 3 {
+		t.Fatalf("want 3 chunks, got %d: %v", len(chunks), chunkTitles(chunks))
+	}
+
+	// Purpose chunk
+	assertContains(t, chunks[0].Text, "[SOP 154 — Start Stop Axiom] > 1. Purpose")
+	assertContains(t, chunks[0].Text, "This SOP provides steps.")
+
+	// 6.1 breadcrumb includes parent section 6
+	assertContains(t, chunks[1].Text, "6. Detailed Procedures > 6.1 Access the Server")
+
+	// 6.2 breadcrumb correct
+	assertContains(t, chunks[2].Text, "6. Detailed Procedures > 6.2 Stopping Axiom")
+	assertContains(t, chunks[2].Text, "Notify team.")
+}
+
 func TestChunkSop_EmptyBodySkipped(t *testing.T) {
 	// A heading immediately followed by another heading should not emit an empty chunk.
 	meta := sopMetadata{number: "1", title: "T"}
