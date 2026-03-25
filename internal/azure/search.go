@@ -72,9 +72,15 @@ func (c *SearchClient) CreateIndex() error {
 			{"name": "id", "type": "Edm.String", "key": true, "filterable": true},
 			{"name": "filename", "type": "Edm.String", "filterable": true, "sortable": true},
 			{"name": "page_number", "type": "Edm.Int32", "filterable": true},
+			// Banner-specific metadata
 			{"name": "banner_module", "type": "Edm.String", "filterable": true, "facetable": true},
 			{"name": "banner_version", "type": "Edm.String", "filterable": true, "facetable": true},
 			{"name": "year", "type": "Edm.String", "filterable": true, "facetable": true},
+			// Source classification — filterable so callers can scope to sop or banner
+			{"name": "source_type", "type": "Edm.String", "filterable": true, "facetable": true},
+			// SOP-specific metadata
+			{"name": "sop_number", "type": "Edm.String", "filterable": true, "facetable": true},
+			{"name": "document_title", "type": "Edm.String", "searchable": true, "filterable": true, "analyzer": "en.microsoft"},
 			{
 				"name":       "chunk_text",
 				"type":       "Edm.String",
@@ -236,6 +242,9 @@ type ChunkDocument struct {
 	BannerModule  string    `json:"banner_module"`
 	BannerVersion string    `json:"banner_version"`
 	Year          string    `json:"year"`
+	SourceType    string    `json:"source_type"`    // "banner" or "sop"
+	SOPNumber     string    `json:"sop_number"`     // e.g. "154"  (SOP only)
+	DocumentTitle string    `json:"document_title"` // e.g. "Start Stop Axiom Server" (SOP only)
 	ChunkText     string    `json:"chunk_text"`
 	ContentVector []float32 `json:"content_vector"`
 }
@@ -288,6 +297,9 @@ type SearchResult struct {
 	BannerModule  string  `json:"banner_module"`
 	BannerVersion string  `json:"banner_version"`
 	Year          string  `json:"year"`
+	SourceType    string  `json:"source_type"`
+	SOPNumber     string  `json:"sop_number"`
+	DocumentTitle string  `json:"document_title"`
 	ChunkText     string  `json:"chunk_text"`
 	Score         float64 `json:"@search.score"`
 }
