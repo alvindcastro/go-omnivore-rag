@@ -1,6 +1,6 @@
 baseURL: "https://alvindcastro.github.io/go-omnivore-rag/"
 languageCode: en-us
-title: "go-omnivore-rag"
+title: "Notes from the Stack"
 theme: PaperMod
 
 paginate: 10
@@ -16,7 +16,7 @@ minify:
 
 params:
   env: production
-  title: "go-omnivore-rag"
+  title: "Notes from the Stack"
   description: "Building an AI-powered RAG assistant for Ellucian Banner ERP — a story about architecture, Go, Azure, and making PDF chaos disappear."
   keywords: [Go, RAG, AI, Azure, OpenAI, "Vector Search", "Ellucian Banner", ERP]
   author: Alvin D. Castro
@@ -41,7 +41,7 @@ params:
   tocopen: false
 
   label:
-    text: "go-omnivore-rag"
+    text: "Notes from the Stack"
 
   homeInfoParams:
     Title: "We stopped reading Banner release notes."
