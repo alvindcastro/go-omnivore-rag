@@ -2,13 +2,13 @@
 .env
 
 # Compiled binary
-banner-rag
+omnivore-rag
 *.exe
 
 # Go module cache
 vendor/
 
-# Banner PDFs - store in Azure Blob instead
+# Input documents - store in Azure Blob instead
 data/docs/*.pdf
 data/docs/*.txt
 data/docs/*.md
