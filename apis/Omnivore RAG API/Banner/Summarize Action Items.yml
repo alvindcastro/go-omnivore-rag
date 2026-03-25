@@ -1,0 +1,23 @@
+info:
+  name: Summarize Action Items
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/summarize/actions"
+  body:
+    type: json
+    data: |-
+      {
+        "version": "9.3.22",
+        "module": "Finance",
+        "top_k": 10
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

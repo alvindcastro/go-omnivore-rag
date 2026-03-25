@@ -1,0 +1,22 @@
+info:
+  name: Ask
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{base_url}}/sop/ask"
+  body:
+    type: json
+    data: |-
+      {
+        "question": "How do I start the Axiom server?",
+        "top_k": 5
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,21 @@
+info:
+  name: Blob Sync
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/blob/sync"
+  body:
+    type: json
+    data: |-
+      {
+        "overwrite": false
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

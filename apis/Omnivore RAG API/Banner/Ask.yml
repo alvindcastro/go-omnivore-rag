@@ -1,0 +1,25 @@
+info:
+  name: Ask
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/ask"
+  body:
+    type: json
+    data: |-
+      {
+        "question": "What changed in Banner Finance 9.3.22?",
+        "top_k": 5,
+        "version_filter": "",
+        "module_filter": "",
+        "year_filter": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

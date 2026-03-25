@@ -1,0 +1,23 @@
+info:
+  name: Summarize Compatibility
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/summarize/compatibility"
+  body:
+    type: json
+    data: |-
+      {
+        "version": "9.3.22",
+        "module": "Finance",
+        "top_k": 10
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

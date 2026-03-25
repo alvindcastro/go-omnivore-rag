@@ -1,0 +1,23 @@
+info:
+  name: Summarize Full
+  type: http
+  seq: 9
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/summarize/full"
+  body:
+    type: json
+    data: |-
+      {
+        "version": "9.3.22",
+        "module": "Finance",
+        "top_k": 10
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
