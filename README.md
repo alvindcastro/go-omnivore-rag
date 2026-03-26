@@ -109,7 +109,6 @@ cp .env.example .env
 The `docs/` directory is gitignored. Generate it once before starting the server:
 
 ```bash
-go install github.com/swaggo/swag/cmd/swag@latest
 go generate ./internal/api/
 ```
 
@@ -230,17 +229,12 @@ Interactive API docs are auto-generated from handler comments using [swaggo/swag
 
 > **Note:** The `docs/` directory is gitignored and must be generated locally before the UI is available.
 
-**1. Install the swag CLI** (once):
-```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-**2. Generate the docs:**
+**1. Generate the docs** (no CLI install needed — uses `go run`):
 ```bash
 go generate ./internal/api/
 ```
 
-**3. Start the server and open:**
+**2. Start the server and open:**
 ```
 http://localhost:8000/docs/index.html
 ```
