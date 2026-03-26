@@ -1,5 +1,7 @@
 // internal/api/handlers.go
 // Gin HTTP handlers for all API endpoints.
+//
+//go:generate swag init -g ../../cmd/main.go -o ../../docs/
 package api
 
 import (

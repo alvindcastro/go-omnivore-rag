@@ -471,6 +471,29 @@ LOG_LEVEL=info
 
 ---
 
+## Swagger UI
+
+Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag).
+
+**Install the CLI** (once):
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+**Regenerate docs** after changing handler annotations:
+```bash
+go generate ./internal/api/
+```
+
+**Browse the UI** while the server is running:
+```
+http://localhost:8000/docs/index.html
+```
+
+The `docs/` directory is gitignored — always regenerate after pulling changes to `internal/api/handlers.go`.
+
+---
+
 ## Bruno API Collection
 
 Recommended tool for testing: [usebruno.com](https://www.usebruno.com)
