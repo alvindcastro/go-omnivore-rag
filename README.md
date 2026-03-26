@@ -537,6 +537,30 @@ LOG_LEVEL=info
 
 ---
 
+## Roadmap
+
+Potential improvements roughly ordered by value:
+
+**Developer Experience**
+- [ ] **Makefile** — `make run`, `make docs`, `make proto`, `make test`, `make build` in one place
+- [ ] **Air (live reload)** — restart server automatically on file changes during development
+- [ ] **Graceful shutdown** — handle `SIGTERM` so in-flight requests complete before exit
+
+**Observability**
+- [ ] **Structured logging** — replace `log.Printf` with `slog` (Go stdlib) for JSON log output
+- [ ] **Request ID middleware** — stamp every request with a trace ID for log correlation
+
+**API**
+- [ ] **CORS middleware** — required before any browser or frontend can call this API
+- [ ] **Pagination** — `/sop` and `/debug/chunks` currently return unbounded lists
+- [ ] **Streaming responses (SSE)** — stream GPT tokens on `/banner/ask` and `/sop/ask` instead of waiting for the full answer
+
+**CI/CD & Deployment**
+- [ ] **GitHub Actions** — `go build`, `go vet`, `go test ./...` on every push
+- [ ] **Dockerfile + docker-compose** — run the stack without needing Go installed locally
+
+---
+
 ## Implementation Notes
 
 - Azure OpenAI and Azure AI Search use **direct REST calls** (no official Go SDK) — intentional for transparency
