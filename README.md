@@ -42,60 +42,14 @@ Banner PDFs / SOP .docx files
 - **Azure AI Search** — Hybrid vector + BM25 keyword search, single index with `source_type` filtering
 - **Azure Blob Storage** — Optional Banner PDF source storage
 - **Protocol Buffers + buf** — gRPC service definitions and code generation
-- **Bruno** — API testing (recommended over Postman)
 
 ---
 
-## Project Structure
+## Prerequisites
 
-```
-go-omnivore-rag/
-├── cmd/
-│   ├── main.go                        ← HTTP server entry point  (port 8000)
-│   └── grpc/
-│       └── main.go                    ← gRPC server entry point  (port 9000)
-├── proto/
-│   └── omnivore/v1/
-│       ├── common.proto               ← Shared messages (AskResponse, SourceChunk, …)
-│       ├── system.proto               ← SystemService (Health, IndexStats, CreateIndex)
-│       ├── banner.proto               ← BannerService (Ask, Ingest, BlobSync, Summarize)
-│       └── sop.proto                  ← SOPService (Ask, Ingest, List)
-├── gen/
-│   └── go/                            ← Generated protobuf code (run `buf generate`)
-├── buf.yaml                           ← buf module config (lint + breaking detection)
-├── buf.gen.yaml                       ← buf code generation config
-├── config/
-│   └── config.go                      ← Loads all settings from .env
-├── internal/
-│   ├── azure/
-│   │   ├── openai.go                  ← Azure OpenAI REST client (embed + chat)
-│   │   ├── search.go                  ← Azure AI Search REST client (index + hybrid search)
-│   │   └── blob.go                    ← Azure Blob Storage SDK client
-│   ├── ingest/
-│   │   ├── ingest.go                  ← Ingestion pipeline (walk → extract → chunk → embed → index)
-│   │   ├── docx.go                    ← DOCX paragraph extractor (no external deps)
-│   │   ├── sop.go                     ← SOP filename/metadata parser
-│   │   └── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
-│   ├── rag/
-│   │   ├── rag.go                     ← RAG pipeline (retrieve + generate)
-│   │   └── summarize.go               ← Summarization pipeline (4 focused topics)
-│   ├── api/
-│   │   ├── handlers.go                ← HTTP handlers (Gin)
-│   │   └── router.go                  ← Gin route wiring
-│   └── grpcserver/
-│       ├── server.go                  ← gRPC server setup and service registration
-│       ├── system.go                  ← SystemService handler implementation
-│       ├── banner.go                  ← BannerService handler implementation
-│       └── sop.go                     ← SOPService handler implementation
-├── apis/
-│   └── Omnivore RAG API/              ← Bruno HTTP collection
-├── data/
-│   └── docs/
-│       ├── banner/                    ← Banner release note PDFs
-│       └── sop/                       ← SOP .docx files
-├── .env.example
-└── go.mod
-```
+- **Go 1.24+** — [go.dev/dl](https://go.dev/dl)
+- **buf** (for gRPC code generation) — [buf.build/docs/installation](https://buf.build/docs/installation)
+- Azure subscription — [portal.azure.com](https://portal.azure.com)
 
 ---
 
@@ -108,26 +62,6 @@ go-omnivore-rag/
 | Azure Blob Storage | Standard LRS | Optional — store Banner PDFs in the cloud |
 
 **Estimated cost for MVP/learning:** ~$1–5/month
-
----
-
-## Setup
-
-### 1. Prerequisites
-
-- **Go 1.24+** — [go.dev/dl](https://go.dev/dl)
-- **buf** (for gRPC code generation) — [buf.build/docs/installation](https://buf.build/docs/installation)
-- Azure subscription — [portal.azure.com](https://portal.azure.com)
-
-### 2. Clone and install
-
-```bash
-git clone https://github.com/<your-username>/go-omnivore-rag.git
-cd go-omnivore-rag
-go mod tidy
-```
-
-### 3. Create Azure resources
 
 **Azure OpenAI** (Canada East)
 ```
@@ -151,37 +85,56 @@ Redundancy: LRS
 Container: banner-release-notes (Private)
 ```
 
-### 4. Configure environment
+---
+
+## Setup
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/<your-username>/go-omnivore-rag.git
+cd go-omnivore-rag
+go mod tidy
+```
+
+### 2. Configure environment
 
 ```bash
 cp .env.example .env
 # Fill in your Azure credentials — see .env Configuration section below
 ```
 
-### 5. Create the search index
-
-```
-POST http://localhost:8000/index/create
-```
-
-### 6. Add documents
-
-```
-data/docs/banner/general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
-data/docs/sop/SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
-data/docs/sop/SOP154 - Procedure - Start, Stop Axiom.docx
-```
-
-### 7. Run the HTTP server
+### 3. Run the HTTP server
 
 ```bash
 go run cmd/main.go
 # Listening on :8000
 ```
 
+### 4. Create the search index
+
+```
+POST http://localhost:8000/index/create
+```
+
+### 5. Add documents and ingest
+
+Drop your files into the right folder:
+```
+data/docs/banner/general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
+data/docs/sop/SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
+data/docs/sop/SOP154 - Procedure - Start, Stop Axiom.docx
+```
+
+Then ingest:
+```
+POST http://localhost:8000/banner/ingest
+POST http://localhost:8000/sop/ingest
+```
+
 ---
 
-## HTTP API Endpoints
+## HTTP API
 
 ### System
 
@@ -259,6 +212,118 @@ All filter fields are optional.
   "overwrite": false
 }
 ```
+
+---
+
+## Swagger UI
+
+Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag).
+
+**Browse the UI** while the server is running:
+```
+http://localhost:8000/docs/index.html
+```
+
+**Install the CLI** (once, to regenerate after handler changes):
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+**Regenerate docs:**
+```bash
+go generate ./internal/api/
+```
+
+The `docs/` directory is gitignored — always regenerate after pulling changes to `internal/api/handlers.go`.
+
+---
+
+## Bruno API Collection
+
+Recommended tool for manual testing: [usebruno.com](https://www.usebruno.com)
+
+Open the `apis/Omnivore RAG API/` folder in Bruno. Set the `base_url` environment variable to `http://localhost:8000`.
+
+```
+Omnivore RAG API/
+├── System/
+│   ├── Health Check         GET  /health
+│   ├── Index Stats          GET  /index/stats
+│   └── Create Index         POST /index/create
+├── Banner/
+│   ├── Ask                  POST /banner/ask
+│   ├── Ingest               POST /banner/ingest
+│   ├── Blob List            GET  /banner/blob/list
+│   ├── Blob Sync            POST /banner/blob/sync
+│   ├── Summarize What Changed        POST /banner/summarize/changes
+│   ├── Summarize Breaking Changes    POST /banner/summarize/breaking
+│   ├── Summarize Action Items        POST /banner/summarize/actions
+│   ├── Summarize Compatibility       POST /banner/summarize/compatibility
+│   └── Summarize Full                POST /banner/summarize/full
+├── SOP/
+│   ├── List SOPs            GET  /sop
+│   ├── Ask                  POST /sop/ask
+│   └── Ingest               POST /sop/ingest
+└── Debug/
+    └── List Chunks          GET  /debug/chunks
+```
+
+---
+
+## Working with Documents
+
+### Folder Structure
+
+```
+data/docs/
+├── banner/                          # Ellucian Banner release notes
+│   ├── general/
+│   │   └── 2026/february/
+│   │       └── Banner_General_9.3.37.2_ReleaseNotes.pdf
+│   ├── finance/
+│   │   └── 2026/february/
+│   │       └── Banner_Finance_9.3.22_ReleaseNotes.pdf
+│   └── student/
+│       └── 2026/february/
+│           └── Banner_Student_9.39_ReleaseNotes.pdf
+└── sop/                             # Standard Operating Procedures
+    ├── SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
+    └── SOP154 - Procedure - Start, Stop Axiom.docx
+```
+
+**Supported file types:** `.pdf`, `.txt`, `.md`, `.docx`
+
+> Legacy `.doc` files are not supported. Save them as `.docx` before ingesting.
+
+### SOP Ingestion Pipeline
+
+Files under `data/docs/sop/` go through a dedicated section-aware pipeline instead of the standard page-based chunker.
+
+**Filename convention** (required):
+```
+SOP<number> - <Title>.docx
+SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
+SOP154 - Procedure - Start, Stop Axiom.docx
+```
+
+Files that don't match the `SOP<N> - <Title>` pattern are skipped with a warning.
+
+**How chunking works:**
+
+Each section heading opens a new chunk. Every chunk is prefixed with a breadcrumb so the model always knows which SOP and section it came from:
+
+```
+[SOP 154 — Procedure - Start, Stop Axiom] > 6. Detailed Procedures > 6.2 Stopping Axiom
+
+Notify the team and/or clients.
+Stop Windows Services in the following order: ...
+```
+
+Two heading styles are handled automatically:
+- **Styled** — `Heading1` / `Heading2` / `Heading3` / `Heading4` Word paragraph styles
+- **Plain** — `Normal` paragraphs with numbered prefixes like `6.2 Stopping Axiom`
+
+Cover-page content (company info, change history tables, table of contents) is stripped before chunking. Chunks are indexed with `source_type: "sop"` and are fully filterable from Banner content.
 
 ---
 
@@ -370,60 +435,56 @@ buf breaking --against '.git#branch=main'
 
 ---
 
-## Document Folder Structure
+## Project Structure
 
 ```
-data/docs/
-├── banner/                          # Ellucian Banner release notes
-│   ├── general/
-│   │   └── 2026/february/
-│   │       └── Banner_General_9.3.37.2_ReleaseNotes.pdf
-│   ├── finance/
-│   │   └── 2026/february/
-│   │       └── Banner_Finance_9.3.22_ReleaseNotes.pdf
-│   └── student/
-│       └── 2026/february/
-│           └── Banner_Student_9.39_ReleaseNotes.pdf
-└── sop/                             # Standard Operating Procedures
-    ├── SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
-    └── SOP154 - Procedure - Start, Stop Axiom.docx
+go-omnivore-rag/
+├── cmd/
+│   ├── main.go                        ← HTTP server entry point  (port 8000)
+│   └── grpc/
+│       └── main.go                    ← gRPC server entry point  (port 9000)
+├── proto/
+│   └── omnivore/v1/
+│       ├── common.proto               ← Shared messages (AskResponse, SourceChunk, …)
+│       ├── system.proto               ← SystemService (Health, IndexStats, CreateIndex)
+│       ├── banner.proto               ← BannerService (Ask, Ingest, BlobSync, Summarize)
+│       └── sop.proto                  ← SOPService (Ask, Ingest, List)
+├── gen/
+│   └── go/                            ← Generated protobuf code (run `buf generate`)
+├── buf.yaml                           ← buf module config (lint + breaking detection)
+├── buf.gen.yaml                       ← buf code generation config
+├── config/
+│   └── config.go                      ← Loads all settings from .env
+├── internal/
+│   ├── azure/
+│   │   ├── openai.go                  ← Azure OpenAI REST client (embed + chat)
+│   │   ├── search.go                  ← Azure AI Search REST client (index + hybrid search)
+│   │   └── blob.go                    ← Azure Blob Storage SDK client
+│   ├── ingest/
+│   │   ├── ingest.go                  ← Ingestion pipeline (walk → extract → chunk → embed → index)
+│   │   ├── docx.go                    ← DOCX paragraph extractor (no external deps)
+│   │   ├── sop.go                     ← SOP filename/metadata parser
+│   │   └── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
+│   ├── rag/
+│   │   ├── rag.go                     ← RAG pipeline (retrieve + generate)
+│   │   └── summarize.go               ← Summarization pipeline (4 focused topics)
+│   ├── api/
+│   │   ├── handlers.go                ← HTTP handlers (Gin)
+│   │   └── router.go                  ← Gin route wiring
+│   └── grpcserver/
+│       ├── server.go                  ← gRPC server setup and service registration
+│       ├── system.go                  ← SystemService handler implementation
+│       ├── banner.go                  ← BannerService handler implementation
+│       └── sop.go                     ← SOPService handler implementation
+├── apis/
+│   └── Omnivore RAG API/              ← Bruno HTTP collection
+├── data/
+│   └── docs/
+│       ├── banner/                    ← Banner release note PDFs
+│       └── sop/                       ← SOP .docx files
+├── .env.example
+└── go.mod
 ```
-
-**Supported file types:** `.pdf`, `.txt`, `.md`, `.docx`
-
-> Legacy `.doc` files are not supported. Save them as `.docx` before ingesting.
-
----
-
-## SOP Document Ingestion
-
-Files under `data/docs/sop/` go through a dedicated section-aware pipeline instead of the standard page-based chunker.
-
-**Filename convention** (required):
-```
-SOP<number> - <Title>.docx
-SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
-SOP154 - Procedure - Start, Stop Axiom.docx
-```
-
-Files that don't match the `SOP<N> - <Title>` pattern are skipped with a warning.
-
-**How chunking works:**
-
-Each section heading opens a new chunk. Every chunk is prefixed with a breadcrumb so the model always knows which SOP and section it came from:
-
-```
-[SOP 154 — Procedure - Start, Stop Axiom] > 6. Detailed Procedures > 6.2 Stopping Axiom
-
-Notify the team and/or clients.
-Stop Windows Services in the following order: ...
-```
-
-Two heading styles are handled automatically:
-- **Styled** — `Heading1` / `Heading2` / `Heading3` / `Heading4` Word paragraph styles
-- **Plain** — `Normal` paragraphs with numbered prefixes like `6.2 Stopping Axiom`
-
-Cover-page content (company info, change history tables, table of contents) is stripped before chunking. Chunks are indexed with `source_type: "sop"` and are fully filterable from Banner content.
 
 ---
 
@@ -468,61 +529,6 @@ LOG_LEVEL=info
 - Set a **budget alert** in Azure Cost Management ($20/month recommended)
 - Only re-ingest when you have new documents — avoid unnecessary embedding calls
 - Use `start_page` / `end_page` on Banner ingest to test specific page ranges
-
----
-
-## Swagger UI
-
-Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag).
-
-**Install the CLI** (once):
-```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-```
-
-**Regenerate docs** after changing handler annotations:
-```bash
-go generate ./internal/api/
-```
-
-**Browse the UI** while the server is running:
-```
-http://localhost:8000/docs/index.html
-```
-
-The `docs/` directory is gitignored — always regenerate after pulling changes to `internal/api/handlers.go`.
-
----
-
-## Bruno API Collection
-
-Recommended tool for testing: [usebruno.com](https://www.usebruno.com)
-
-Open the `apis/Omnivore RAG API/` folder in Bruno. Set the `base_url` environment variable to `http://localhost:8000`.
-
-```
-Omnivore RAG API/
-├── System/
-│   ├── Health Check         GET  /health
-│   ├── Index Stats          GET  /index/stats
-│   └── Create Index         POST /index/create
-├── Banner/
-│   ├── Ask                  POST /banner/ask
-│   ├── Ingest               POST /banner/ingest
-│   ├── Blob List            GET  /banner/blob/list
-│   ├── Blob Sync            POST /banner/blob/sync
-│   ├── Summarize What Changed        POST /banner/summarize/changes
-│   ├── Summarize Breaking Changes    POST /banner/summarize/breaking
-│   ├── Summarize Action Items        POST /banner/summarize/actions
-│   ├── Summarize Compatibility       POST /banner/summarize/compatibility
-│   └── Summarize Full                POST /banner/summarize/full
-├── SOP/
-│   ├── List SOPs            GET  /sop
-│   ├── Ask                  POST /sop/ask
-│   └── Ingest               POST /sop/ingest
-└── Debug/
-    └── List Chunks          GET  /debug/chunks
-```
 
 ---
 
