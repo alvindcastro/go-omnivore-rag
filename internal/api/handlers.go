@@ -39,6 +39,13 @@ func NewHandler(cfg *config.Config) *Handler {
 
 // ─── System ───────────────────────────────────────────────────────────────────
 
+// Health godoc
+//
+//	@Summary	Service health check
+//	@Tags		system
+//	@Produce	json
+//	@Success	200	{object}	map[string]string
+//	@Router		/health [get]
 func (h *Handler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":          "healthy",
@@ -48,6 +55,14 @@ func (h *Handler) Health(c *gin.Context) {
 	})
 }
 
+// IndexStats godoc
+//
+//	@Summary	Azure Search index statistics
+//	@Tags		system
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Failure	500	{object}	map[string]string
+//	@Router		/index/stats [get]
 func (h *Handler) IndexStats(c *gin.Context) {
 	count, err := h.search.GetDocumentCount()
 	if err != nil {
@@ -61,6 +76,14 @@ func (h *Handler) IndexStats(c *gin.Context) {
 	})
 }
 
+// CreateIndex godoc
+//
+//	@Summary	Create the Azure Search index
+//	@Tags		system
+//	@Produce	json
+//	@Success	200	{object}	map[string]string
+//	@Failure	500	{object}	map[string]string
+//	@Router		/index/create [post]
 func (h *Handler) CreateIndex(c *gin.Context) {
 	if err := h.search.CreateIndex(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -72,6 +95,14 @@ func (h *Handler) CreateIndex(c *gin.Context) {
 	})
 }
 
+// ListChunks godoc
+//
+//	@Summary	List up to 50 indexed document chunks
+//	@Tags		system
+//	@Produce	json
+//	@Success	200	{object}	any
+//	@Failure	500	{object}	map[string]string
+//	@Router		/debug/chunks [get]
 func (h *Handler) ListChunks(c *gin.Context) {
 	url := fmt.Sprintf(
 		"%s/indexes/%s/docs?api-version=2024-03-01-Preview&search=*&$top=50&$select=id,filename,page_number,banner_module,banner_version,source_type,sop_number",
