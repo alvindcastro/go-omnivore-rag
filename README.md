@@ -104,20 +104,29 @@ cp .env.example .env
 # Fill in your Azure credentials — see .env Configuration section below
 ```
 
-### 3. Run the HTTP server
+### 3. Generate Swagger docs
+
+The `docs/` directory is gitignored. Generate it once before starting the server:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+go generate ./internal/api/
+```
+
+### 4. Run the HTTP server
 
 ```bash
 go run cmd/main.go
 # Listening on :8000
 ```
 
-### 4. Create the search index
+### 5. Create the search index
 
 ```
 POST http://localhost:8000/index/create
 ```
 
-### 5. Add documents and ingest
+### 6. Add documents and ingest
 
 Drop your files into the right folder:
 ```
@@ -217,24 +226,26 @@ All filter fields are optional.
 
 ## Swagger UI
 
-Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag).
+Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag) and served at `/docs`.
 
-**Browse the UI** while the server is running:
-```
-http://localhost:8000/docs/index.html
-```
+> **Note:** The `docs/` directory is gitignored and must be generated locally before the UI is available.
 
-**Install the CLI** (once, to regenerate after handler changes):
+**1. Install the swag CLI** (once):
 ```bash
 go install github.com/swaggo/swag/cmd/swag@latest
 ```
 
-**Regenerate docs:**
+**2. Generate the docs:**
 ```bash
 go generate ./internal/api/
 ```
 
-The `docs/` directory is gitignored — always regenerate after pulling changes to `internal/api/handlers.go`.
+**3. Start the server and open:**
+```
+http://localhost:8000/docs/index.html
+```
+
+Regenerate any time you pull changes to `internal/api/handlers.go`.
 
 ---
 
