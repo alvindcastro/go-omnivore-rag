@@ -175,6 +175,16 @@ type bannerIngestRequest struct {
 	EndPage       int    `json:"end_page"`
 }
 
+// BannerIngest godoc
+//
+//	@Summary	Ingest Banner release note PDFs into the search index
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		bannerIngestRequest	false	"Ingest options"
+//	@Success	200		{object}	map[string]any
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/ingest [post]
 func (h *Handler) BannerIngest(c *gin.Context) {
 	var req bannerIngestRequest
 	_ = c.ShouldBindJSON(&req)
