@@ -206,6 +206,16 @@ type blobSyncRequest struct {
 	PagesPerBatch   int    `json:"pages_per_batch"`
 }
 
+// BlobList godoc
+//
+//	@Summary	List documents in Azure Blob Storage
+//	@Tags		banner
+//	@Produce	json
+//	@Param		prefix	query		string	false	"Blob name prefix filter"
+//	@Success	200		{object}	map[string]any
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/blob/list [get]
 func (h *Handler) BlobList(c *gin.Context) {
 	if h.cfg.AzureStorageConnectionString == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "AZURE_STORAGE_CONNECTION_STRING is not configured"})
@@ -302,6 +312,17 @@ func (h *Handler) SummarizeCompatibility(c *gin.Context) {
 	h.handleSummarize(c, "compatibility")
 }
 
+// SummarizeFull godoc
+//
+//	@Summary	Full summary across all topics for a Banner release
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.SummarizeRequest	true	"Summarize request"
+//	@Success	200		{object}	rag.FullSummaryResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/summarize/full [post]
 func (h *Handler) SummarizeFull(c *gin.Context) {
 	var req rag.SummarizeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
