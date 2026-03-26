@@ -440,6 +440,17 @@ type sopAskRequest struct {
 	TopK     int    `json:"top_k"`
 }
 
+// SopAsk godoc
+//
+//	@Summary	Ask a question against SOPs
+//	@Tags		sop
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		sopAskRequest	true	"Question payload"
+//	@Success	200		{object}	rag.AskResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/sop/ask [post]
 func (h *Handler) SopAsk(c *gin.Context) {
 	var req sopAskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -471,6 +482,16 @@ type sopIngestRequest struct {
 	Overwrite bool `json:"overwrite"`
 }
 
+// SopIngest godoc
+//
+//	@Summary	Ingest SOP documents into the search index
+//	@Tags		sop
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		sopIngestRequest	false	"Ingest options"
+//	@Success	200		{object}	map[string]any
+//	@Failure	500		{object}	map[string]string
+//	@Router		/sop/ingest [post]
 func (h *Handler) SopIngest(c *gin.Context) {
 	var req sopIngestRequest
 	_ = c.ShouldBindJSON(&req)
@@ -486,6 +507,14 @@ func (h *Handler) SopIngest(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// SopList godoc
+//
+//	@Summary	List all ingested SOPs
+//	@Tags		sop
+//	@Produce	json
+//	@Success	200	{object}	map[string]any
+//	@Failure	500	{object}	map[string]string
+//	@Router		/sop [get]
 func (h *Handler) SopList(c *gin.Context) {
 	entries, err := h.search.ListSOPs()
 	if err != nil {
