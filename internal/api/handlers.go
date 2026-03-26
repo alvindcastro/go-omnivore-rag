@@ -317,18 +317,62 @@ func (h *Handler) BlobSync(c *gin.Context) {
 
 // ─── Banner — Summarizer ──────────────────────────────────────────────────────
 
+// SummarizeChanges godoc
+//
+//	@Summary	Summarize what changed in a Banner release
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.SummarizeRequest	true	"Summarize request"
+//	@Success	200		{object}	rag.SummarizeResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/summarize/changes [post]
 func (h *Handler) SummarizeChanges(c *gin.Context) {
 	h.handleSummarize(c, "changes")
 }
 
+// SummarizeBreaking godoc
+//
+//	@Summary	Summarize breaking changes in a Banner release
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.SummarizeRequest	true	"Summarize request"
+//	@Success	200		{object}	rag.SummarizeResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/summarize/breaking [post]
 func (h *Handler) SummarizeBreaking(c *gin.Context) {
 	h.handleSummarize(c, "breaking")
 }
 
+// SummarizeActions godoc
+//
+//	@Summary	Summarize required actions for a Banner release
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.SummarizeRequest	true	"Summarize request"
+//	@Success	200		{object}	rag.SummarizeResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/summarize/actions [post]
 func (h *Handler) SummarizeActions(c *gin.Context) {
 	h.handleSummarize(c, "actions")
 }
 
+// SummarizeCompatibility godoc
+//
+//	@Summary	Summarize compatibility notes for a Banner release
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.SummarizeRequest	true	"Summarize request"
+//	@Success	200		{object}	rag.SummarizeResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/summarize/compatibility [post]
 func (h *Handler) SummarizeCompatibility(c *gin.Context) {
 	h.handleSummarize(c, "compatibility")
 }
