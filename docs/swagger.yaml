@@ -7,6 +7,294 @@ info:
   title: go-omnivore-rag API
   version: "1.0"
 paths:
+  /banner/ask:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Question payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.bannerAskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.AskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ask a question against Banner release notes
+      tags:
+      - banner
+  /banner/blob/list:
+    get:
+      parameters:
+      - description: Blob name prefix filter
+        in: query
+        name: prefix
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List documents in Azure Blob Storage
+      tags:
+      - banner
+  /banner/blob/sync:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Sync options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.blobSyncRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Download blobs from Azure Storage and ingest them
+      tags:
+      - banner
+  /banner/ingest:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ingest options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.bannerIngestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ingest Banner release note PDFs into the search index
+      tags:
+      - banner
+  /banner/summarize/actions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Summarize request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.SummarizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.SummarizeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Summarize required actions for a Banner release
+      tags:
+      - banner
+  /banner/summarize/breaking:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Summarize request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.SummarizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.SummarizeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Summarize breaking changes in a Banner release
+      tags:
+      - banner
+  /banner/summarize/changes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Summarize request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.SummarizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.SummarizeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Summarize what changed in a Banner release
+      tags:
+      - banner
+  /banner/summarize/compatibility:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Summarize request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.SummarizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.SummarizeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Summarize compatibility notes for a Banner release
+      tags:
+      - banner
+  /banner/summarize/full:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Summarize request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.SummarizeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.FullSummaryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Full summary across all topics for a Banner release
+      tags:
+      - banner
   /debug/chunks:
     get:
       produces:
