@@ -136,6 +136,17 @@ type bannerAskRequest struct {
 	YearFilter    string `json:"year_filter"`
 }
 
+// BannerAsk godoc
+//
+//	@Summary	Ask a question against Banner release notes
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		bannerAskRequest	true	"Question payload"
+//	@Success	200		{object}	rag.AskResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/ask [post]
 func (h *Handler) BannerAsk(c *gin.Context) {
 	var req bannerAskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
