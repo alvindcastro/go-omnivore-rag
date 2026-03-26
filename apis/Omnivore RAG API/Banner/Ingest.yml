@@ -10,7 +10,7 @@ http:
     type: json
     data: |-
       {
-        "docs_path": "data/docs/banner",
+        "docs_path": "data/docs/banner/general/releases",
         "overwrite": false,
         "pages_per_batch": 10
       }
