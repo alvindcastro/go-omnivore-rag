@@ -9,6 +9,451 @@
     "host": "localhost:8000",
     "basePath": "/",
     "paths": {
+        "/banner/ask": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Ask a question against Banner release notes",
+                "parameters": [
+                    {
+                        "description": "Question payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.bannerAskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.AskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/blob/list": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "List documents in Azure Blob Storage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Blob name prefix filter",
+                        "name": "prefix",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/blob/sync": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Download blobs from Azure Storage and ingest them",
+                "parameters": [
+                    {
+                        "description": "Sync options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.blobSyncRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/ingest": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Ingest Banner release note PDFs into the search index",
+                "parameters": [
+                    {
+                        "description": "Ingest options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.bannerIngestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/summarize/actions": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Summarize required actions for a Banner release",
+                "parameters": [
+                    {
+                        "description": "Summarize request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/summarize/breaking": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Summarize breaking changes in a Banner release",
+                "parameters": [
+                    {
+                        "description": "Summarize request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/summarize/changes": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Summarize what changed in a Banner release",
+                "parameters": [
+                    {
+                        "description": "Summarize request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/summarize/compatibility": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Summarize compatibility notes for a Banner release",
+                "parameters": [
+                    {
+                        "description": "Summarize request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/summarize/full": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Full summary across all topics for a Banner release",
+                "parameters": [
+                    {
+                        "description": "Summarize request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.SummarizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.FullSummaryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/debug/chunks": {
             "get": {
                 "produces": [
@@ -114,6 +559,359 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "/sop": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sop"
+                ],
+                "summary": "List all ingested SOPs",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sop/ask": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sop"
+                ],
+                "summary": "Ask a question against SOPs",
+                "parameters": [
+                    {
+                        "description": "Question payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.sopAskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.AskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sop/ingest": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sop"
+                ],
+                "summary": "Ingest SOP documents into the search index",
+                "parameters": [
+                    {
+                        "description": "Ingest options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.sopIngestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.bannerAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "module_filter": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                },
+                "year_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.bannerIngestRequest": {
+            "type": "object",
+            "properties": {
+                "docs_path": {
+                    "type": "string"
+                },
+                "end_page": {
+                    "type": "integer"
+                },
+                "overwrite": {
+                    "type": "boolean"
+                },
+                "pages_per_batch": {
+                    "type": "integer"
+                },
+                "start_page": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.blobSyncRequest": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "ingest_after_sync": {
+                    "type": "boolean"
+                },
+                "overwrite": {
+                    "type": "boolean"
+                },
+                "pages_per_batch": {
+                    "type": "integer"
+                },
+                "prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.sopAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.sopIngestRequest": {
+            "type": "object",
+            "properties": {
+                "overwrite": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "rag.AskResponse": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "retrieval_count": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                }
+            }
+        },
+        "rag.FullSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "action_items": {
+                    "type": "string"
+                },
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "breaking_changes": {
+                    "type": "string"
+                },
+                "chunks_analyzed": {
+                    "type": "integer"
+                },
+                "compatibility": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "source_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "what_changed": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SourceChunk": {
+            "type": "object",
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "chunk_text": {
+                    "type": "string"
+                },
+                "document_title": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "sop_number": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SummarizeRequest": {
+            "type": "object",
+            "required": [
+                "filename"
+            ],
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "year_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SummarizeResponse": {
+            "type": "object",
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "chunks_analyzed": {
+                    "type": "integer"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "source_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
                 }
             }
         }
