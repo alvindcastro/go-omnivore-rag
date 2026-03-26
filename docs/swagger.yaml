@@ -77,4 +77,83 @@ paths:
       summary: Azure Search index statistics
       tags:
       - system
+  /sop:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all ingested SOPs
+      tags:
+      - sop
+  /sop/ask:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Question payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.sopAskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.AskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ask a question against SOPs
+      tags:
+      - sop
+  /sop/ingest:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ingest options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.sopIngestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ingest SOP documents into the search index
+      tags:
+      - sop
 swagger: "2.0"
