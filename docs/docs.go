@@ -691,6 +691,235 @@ const docTemplate = `{
             }
         }
     },
+    "definitions": {
+        "api.bannerAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "module_filter": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                },
+                "year_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.bannerIngestRequest": {
+            "type": "object",
+            "properties": {
+                "docs_path": {
+                    "type": "string"
+                },
+                "end_page": {
+                    "type": "integer"
+                },
+                "overwrite": {
+                    "type": "boolean"
+                },
+                "pages_per_batch": {
+                    "type": "integer"
+                },
+                "start_page": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.blobSyncRequest": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "ingest_after_sync": {
+                    "type": "boolean"
+                },
+                "overwrite": {
+                    "type": "boolean"
+                },
+                "pages_per_batch": {
+                    "type": "integer"
+                },
+                "prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.sopAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.sopIngestRequest": {
+            "type": "object",
+            "properties": {
+                "overwrite": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "rag.AskResponse": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "retrieval_count": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                }
+            }
+        },
+        "rag.FullSummaryResponse": {
+            "type": "object",
+            "properties": {
+                "action_items": {
+                    "type": "string"
+                },
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "breaking_changes": {
+                    "type": "string"
+                },
+                "chunks_analyzed": {
+                    "type": "integer"
+                },
+                "compatibility": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "source_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "what_changed": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SourceChunk": {
+            "type": "object",
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "chunk_text": {
+                    "type": "string"
+                },
+                "document_title": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "score": {
+                    "type": "number"
+                },
+                "sop_number": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SummarizeRequest": {
+            "type": "object",
+            "required": [
+                "filename"
+            ],
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "year_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.SummarizeResponse": {
+            "type": "object",
+            "properties": {
+                "banner_module": {
+                    "type": "string"
+                },
+                "banner_version": {
+                    "type": "string"
+                },
+                "chunks_analyzed": {
+                    "type": "integer"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "source_pages": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string"
+                }
+            }
         }
     }
 }`

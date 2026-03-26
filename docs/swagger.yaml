@@ -1,4 +1,155 @@
 basePath: /
+definitions:
+  api.bannerAskRequest:
+    properties:
+      module_filter:
+        type: string
+      question:
+        minLength: 5
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+      year_filter:
+        type: string
+    required:
+    - question
+    type: object
+  api.bannerIngestRequest:
+    properties:
+      docs_path:
+        type: string
+      end_page:
+        type: integer
+      overwrite:
+        type: boolean
+      pages_per_batch:
+        type: integer
+      start_page:
+        type: integer
+    type: object
+  api.blobSyncRequest:
+    properties:
+      container_name:
+        type: string
+      ingest_after_sync:
+        type: boolean
+      overwrite:
+        type: boolean
+      pages_per_batch:
+        type: integer
+      prefix:
+        type: string
+    type: object
+  api.sopAskRequest:
+    properties:
+      question:
+        minLength: 5
+        type: string
+      top_k:
+        type: integer
+    required:
+    - question
+    type: object
+  api.sopIngestRequest:
+    properties:
+      overwrite:
+        type: boolean
+    type: object
+  rag.AskResponse:
+    properties:
+      answer:
+        type: string
+      question:
+        type: string
+      retrieval_count:
+        type: integer
+      sources:
+        items:
+          $ref: '#/definitions/rag.SourceChunk'
+        type: array
+    type: object
+  rag.FullSummaryResponse:
+    properties:
+      action_items:
+        type: string
+      banner_module:
+        type: string
+      banner_version:
+        type: string
+      breaking_changes:
+        type: string
+      chunks_analyzed:
+        type: integer
+      compatibility:
+        type: string
+      filename:
+        type: string
+      source_pages:
+        items:
+          type: integer
+        type: array
+      what_changed:
+        type: string
+    type: object
+  rag.SourceChunk:
+    properties:
+      banner_module:
+        type: string
+      banner_version:
+        type: string
+      chunk_text:
+        type: string
+      document_title:
+        type: string
+      filename:
+        type: string
+      page:
+        type: integer
+      score:
+        type: number
+      sop_number:
+        type: string
+      source_type:
+        type: string
+      year:
+        type: string
+    type: object
+  rag.SummarizeRequest:
+    properties:
+      banner_module:
+        type: string
+      banner_version:
+        type: string
+      filename:
+        type: string
+      top_k:
+        type: integer
+      year_filter:
+        type: string
+    required:
+    - filename
+    type: object
+  rag.SummarizeResponse:
+    properties:
+      banner_module:
+        type: string
+      banner_version:
+        type: string
+      chunks_analyzed:
+        type: integer
+      filename:
+        type: string
+      source_pages:
+        items:
+          type: integer
+        type: array
+      summary:
+        type: string
+      topic:
+        type: string
+    type: object
 host: localhost:8000
 info:
   contact: {}
