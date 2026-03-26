@@ -27,3 +27,6 @@ blog/resources/_gen/
 # Generated protobuf code (re-create with `buf generate`)
 gen/go/
 !gen/go/.gitkeep
+
+# Generated Swagger docs (re-create with `go generate ./internal/api/`)
+docs/
