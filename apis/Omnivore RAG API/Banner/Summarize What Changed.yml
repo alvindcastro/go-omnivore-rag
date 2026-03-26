@@ -10,8 +10,9 @@ http:
     type: json
     data: |-
       {
-        "version": "9.3.22",
-        "module": "Finance",
+        "filename": "Banner_General_Release_Notes_9.3.37.2_8.26.2_February_2026.pdf",
+        "banner_version": "9.3.37.2",
+        "banner_module": "General",
         "top_k": 10
       }
   auth: inherit
