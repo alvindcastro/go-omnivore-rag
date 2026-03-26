@@ -1,20 +1,19 @@
 info:
-  name: Ask
+  name: Cross Reference
   type: http
-  seq: 1
+  seq: 5
 
 http:
   method: POST
-  url: "{{base_url}}/banner/ask"
+  url: "{{base_url}}/banner/student/cross-reference"
   body:
     type: json
     data: |-
       {
-        "question": "What changed in Banner General 9.3.37.2?",
+        "question": "How does the 9.3.37.2 release affect CRN creation in Banner Student?",
         "top_k": 5,
         "version_filter": "9.3.37.2",
-        "module_filter": "General",
-        "year_filter": "2026"
+        "module_filter": "Student"
       }
   auth: inherit
 

@@ -1,0 +1,25 @@
+info:
+  name: Ingest
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{base_url}}/banner/student/ingest"
+  body:
+    type: json
+    data: |-
+      {
+        "docs_path": "data/docs/banner/student/usage",
+        "overwrite": false,
+        "pages_per_batch": 10,
+        "start_page": 0,
+        "end_page": 0
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
