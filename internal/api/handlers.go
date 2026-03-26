@@ -252,6 +252,17 @@ func (h *Handler) BlobList(c *gin.Context) {
 	})
 }
 
+// BlobSync godoc
+//
+//	@Summary	Download blobs from Azure Storage and ingest them
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		blobSyncRequest	false	"Sync options"
+//	@Success	200		{object}	map[string]any
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/blob/sync [post]
 func (h *Handler) BlobSync(c *gin.Context) {
 	if h.cfg.AzureStorageConnectionString == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "AZURE_STORAGE_CONNECTION_STRING is not configured"})
