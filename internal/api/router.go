@@ -8,8 +8,9 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
-	"github.com/gin-gonic/gin"
 	"go-omnivore-rag/config"
+
+	"github.com/gin-gonic/gin"
 )
 
 // NewRouter creates and returns a configured Gin router.
@@ -32,6 +33,22 @@ func NewRouter(cfg *config.Config) *gin.Engine {
 	{
 		banner.POST("/ask", h.BannerAsk)
 		banner.POST("/ingest", h.BannerIngest)
+
+		// ── Banner / Module-scoped ask ────────────────────────────────────────
+		// Handles /banner/:module/ask for any Banner module (finance, hr, etc.).
+		// Static sub-routes below (student, blob, summarize) take precedence
+		// over the :module parameter in Gin's router tree.
+		banner.POST("/:module/ask", h.ModuleAsk)
+
+		// ── Banner / Student ──────────────────────────────────────────────────
+		student := banner.Group("/student")
+		{
+			student.POST("/ask", h.StudentAsk)
+			student.POST("/ingest", h.StudentIngest)
+			student.POST("/procedure", h.StudentProcedure)
+			student.POST("/lookup", h.StudentLookup)
+			student.POST("/cross-reference", h.StudentCrossReference)
+		}
 
 		blob := banner.Group("/blob")
 		{

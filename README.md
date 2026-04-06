@@ -21,19 +21,25 @@ An AI-powered assistant that helps IT staff and functional analysts answer quest
 ## Architecture
 
 ```
-Banner PDFs / SOP .docx files
+Banner PDFs / SOP .docx files / Student User Guide PDFs
         │
         ▼
-  POST /banner/ingest          ← PDF → pages → chunks → embed → index
-  POST /sop/ingest             ← DOCX → paragraphs → sections → embed → index
+  POST /banner/ingest             ← PDF → pages → chunks → embed → index
+  POST /banner/student/ingest     ← Student guide PDFs → chunks → embed → index
+  POST /sop/ingest                ← DOCX → paragraphs → sections → embed → index
         │
         ▼
-  Azure AI Search Index        ← Vector + BM25 hybrid search (source_type filter)
+  Azure AI Search Index           ← Vector + BM25 hybrid search (source_type filter)
         │
         ▼
-  POST /banner/ask             ← Question → embed → search[banner] → GPT-4o-mini → answer
-  POST /sop/ask                ← Question → embed → search[sop]    → GPT-4o-mini → answer
-  POST /banner/summarize/full  ← Retrieve chunks → GPT-4o-mini → structured summary
+  POST /banner/ask                ← Question → embed → search[banner] → GPT-4o-mini → answer
+  POST /banner/{module}/ask       ← Same, scoped to a module (finance, hr, student, etc.)
+  POST /banner/student/ask        ← Question → embed → search[banner_user_guide] → answer
+  POST /banner/student/procedure  ← Topic → step-by-step instructions from user guide
+  POST /banner/student/lookup     ← Term → definition from user guide
+  POST /banner/student/cross-reference ← Change impact analysis (release notes ↔ user guide)
+  POST /sop/ask                   ← Question → embed → search[sop] → GPT-4o-mini → answer
+  POST /banner/summarize/full     ← Retrieve chunks → GPT-4o-mini → structured summary
 ```
 
 **Stack:**
@@ -157,7 +163,8 @@ POST http://localhost:8000/sop/ingest
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/banner/ask` | Ask a question about Banner release notes |
+| POST | `/banner/ask` | Ask a question about Banner release notes (all modules) |
+| POST | `/banner/{module}/ask` | Ask scoped to a module — `finance`, `hr`, `student`, `financial-aid`, `ar`, `general` |
 | POST | `/banner/ingest` | Ingest PDFs from `data/docs/banner` |
 | GET | `/banner/blob/list` | List PDFs in Azure Blob container |
 | POST | `/banner/blob/sync` | Download from Blob and ingest |
@@ -167,20 +174,39 @@ POST http://localhost:8000/sop/ingest
 | POST | `/banner/summarize/compatibility` | Version and compatibility requirements |
 | POST | `/banner/summarize/full` | All four topics in one response |
 
-**Ask request:**
+**Ask request** (`/banner/ask`):
 ```json
 {
   "question": "What are the prerequisites for Banner General 9.3.37.2?",
   "top_k": 5,
   "version_filter": "9.3.37.2",
   "module_filter": "General",
-  "year_filter": "2026"
+  "year_filter": "2026",
+  "mode": "local"
 }
 ```
 
-All filter fields are optional.
+All filter fields are optional. `mode` options: `"local"` (default, Azure AI Search only), `"web"` (Tavily web search scoped to Ellucian domains), `"hybrid"` (both merged), `"auto"` (system picks based on local retrieval confidence).
 
-**Ingest request:**
+**Module-scoped ask request** (`/banner/{module}/ask`):
+
+The module is taken from the URL path — e.g. `POST /banner/finance/ask`. The body omits `module_filter`.
+
+```json
+{
+  "question": "How do I close a fiscal year in Banner Finance?",
+  "top_k": 5,
+  "version_filter": "",
+  "year_filter": "",
+  "section_filter": "",
+  "source_type": "",
+  "mode": "auto"
+}
+```
+
+`section_filter` narrows results to a specific section heading. `source_type` optionally constrains to a specific document type (`"banner"`, `"banner_user_guide"`, `"sop"`).
+
+**Ingest request** (`/banner/ingest`):
 ```json
 {
   "docs_path": "data/docs/banner",
@@ -195,6 +221,57 @@ All filter fields are optional.
   "version": "9.3.37.2",
   "module": "General",
   "top_k": 20
+}
+```
+
+### Banner Student
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/banner/student/ask` | Ask a question against the Banner Student user guide |
+| POST | `/banner/student/ingest` | Ingest Student user guide PDFs from `data/docs/banner/student/usage` |
+| POST | `/banner/student/procedure` | Get step-by-step instructions for a Student task |
+| POST | `/banner/student/lookup` | Look up a concept or feature definition from the user guide |
+| POST | `/banner/student/cross-reference` | Analyse how a release note change affects Student guide procedures |
+
+**Student ask request** (`/banner/student/ask`):
+```json
+{
+  "question": "What is a CRN in Banner Student?",
+  "top_k": 5,
+  "version_filter": "",
+  "module_filter": "Student",
+  "section_filter": "",
+  "mode": "local"
+}
+```
+
+**Procedure request** (`/banner/student/procedure`):
+```json
+{
+  "topic": "How do I register a student for a course?",
+  "top_k": 5,
+  "module_filter": "Student",
+  "section_filter": ""
+}
+```
+
+**Lookup request** (`/banner/student/lookup`):
+```json
+{
+  "term": "CRN",
+  "top_k": 5,
+  "module_filter": "Student"
+}
+```
+
+**Cross-reference request** (`/banner/student/cross-reference`):
+```json
+{
+  "question": "How does the registration change in 9.3.37.2 affect the add/drop procedure?",
+  "top_k": 5,
+  "version_filter": "9.3.37.2",
+  "module_filter": "Student"
 }
 ```
 
@@ -264,7 +341,23 @@ Omnivore RAG API/
 │   ├── Summarize Breaking Changes    POST /banner/summarize/breaking
 │   ├── Summarize Action Items        POST /banner/summarize/actions
 │   ├── Summarize Compatibility       POST /banner/summarize/compatibility
-│   └── Summarize Full                POST /banner/summarize/full
+│   ├── Summarize Full                POST /banner/summarize/full
+│   ├── General/
+│   │   └── Ask              POST /banner/general/ask
+│   ├── Finance/
+│   │   └── Ask              POST /banner/finance/ask
+│   ├── HR/
+│   │   └── Ask              POST /banner/hr/ask
+│   ├── Financial Aid/
+│   │   └── Ask              POST /banner/financial-aid/ask
+│   ├── AR/
+│   │   └── Ask              POST /banner/ar/ask
+│   └── Student/
+│       ├── Ask              POST /banner/student/ask
+│       ├── Ingest           POST /banner/student/ingest
+│       ├── Procedure        POST /banner/student/procedure
+│       ├── Lookup           POST /banner/student/lookup
+│       └── Cross Reference  POST /banner/student/cross-reference
 ├── SOP/
 │   ├── List SOPs            GET  /sop
 │   ├── Ask                  POST /sop/ask
@@ -465,14 +558,20 @@ go-omnivore-rag/
 │   │   ├── openai.go                  ← Azure OpenAI REST client (embed + chat)
 │   │   ├── search.go                  ← Azure AI Search REST client (index + hybrid search)
 │   │   └── blob.go                    ← Azure Blob Storage SDK client
+│   ├── websearch/
+│   │   ├── bing.go                    ← Bing Web Search v7 client + WebSearcher interface
+│   │   └── tavily.go                  ← Tavily search client (active web search backend)
 │   ├── ingest/
 │   │   ├── ingest.go                  ← Ingestion pipeline (walk → extract → chunk → embed → index)
 │   │   ├── docx.go                    ← DOCX paragraph extractor (no external deps)
 │   │   ├── sop.go                     ← SOP filename/metadata parser
-│   │   └── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
+│   │   ├── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
+│   │   └── student_chunker.go         ← Section-aware chunker for Banner Student user guides
 │   ├── rag/
 │   │   ├── rag.go                     ← RAG pipeline (retrieve + generate)
-│   │   └── summarize.go               ← Summarization pipeline (4 focused topics)
+│   │   ├── summarize.go               ← Summarization pipeline (4 focused topics)
+│   │   ├── modules.go                 ← Banner module definitions and registry
+│   │   └── student.go                 ← Student-specific pipelines (ask, procedure, lookup, cross-ref)
 │   ├── api/
 │   │   ├── handlers.go                ← HTTP handlers (Gin)
 │   │   └── router.go                  ← Gin route wiring
@@ -487,6 +586,7 @@ go-omnivore-rag/
 │   └── docs/
 │       ├── banner/                    ← Banner release note PDFs
 │       └── sop/                       ← SOP .docx files
+├── wiki/                              ← Technical docs (internals, deployment, integrations)
 ├── .env.example
 └── go.mod
 ```
@@ -512,6 +612,13 @@ AZURE_SEARCH_INDEX_NAME=omnivore-knowledge
 AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
 AZURE_STORAGE_CONTAINER_NAME=banner-release-notes
 AZURE_STORAGE_BLOB_PREFIX=
+
+# Web Search — optional, enables mode=web/hybrid/auto
+# Get a key at app.tavily.com
+TAVILY_API_KEY=tvly-<your-key>
+WEB_SEARCH_TOP_K=5
+CONFIDENCE_HIGH_THRESHOLD=0.030
+CONFIDENCE_LOW_THRESHOLD=0.010
 
 # RAG Tuning
 CHUNK_SIZE=500
@@ -544,7 +651,7 @@ Potential improvements roughly ordered by value:
 **Developer Experience**
 - [ ] **Makefile** — `make run`, `make docs`, `make proto`, `make test`, `make build` in one place
 - [ ] **Air (live reload)** — restart server automatically on file changes during development
-- [ ] **Graceful shutdown** — handle `SIGTERM` so in-flight requests complete before exit
+- [x] **Graceful shutdown** — `SIGTERM`/`SIGINT` handling with 30s drain window in `cmd/main.go`
 
 **Observability**
 - [ ] **Structured logging** — replace `log.Printf` with `slog` (Go stdlib) for JSON log output
@@ -557,7 +664,7 @@ Potential improvements roughly ordered by value:
 
 **CI/CD & Deployment**
 - [ ] **GitHub Actions** — `go build`, `go vet`, `go test ./...` on every push
-- [ ] **Dockerfile + docker-compose** — run the stack without needing Go installed locally
+- [x] **Dockerfile + docker-compose** — run the stack without needing Go installed locally
 
 ---
 

@@ -1,0 +1,7 @@
+info:
+  name: AR
+  type: folder
+  seq: 14
+
+request:
+  auth: inherit

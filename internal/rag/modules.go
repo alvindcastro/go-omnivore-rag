@@ -1,7 +1,7 @@
 // internal/rag/modules.go
 // Banner module registry — maps known Banner module names to their RAG behaviour:
 // the LLM persona (system prompt) used for local/hybrid answers and the search
-// prefix prepended to Bing queries so web results are scoped to the right module.
+// prefix prepended to Tavily queries so web results are scoped to the right module.
 package rag
 
 import "strings"
@@ -10,7 +10,7 @@ import "strings"
 type ModuleDef struct {
 	Name         string // display name, e.g. "Finance"
 	SystemPrompt string // LLM persona for local-mode answers
-	SearchPrefix string // prepended to Bing queries, e.g. "Ellucian Banner Finance"
+	SearchPrefix string // prepended to Tavily queries, e.g. "Ellucian Banner Finance"
 }
 
 // moduleRegistry maps normalised (lowercase) module names to their definitions.

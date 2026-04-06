@@ -14,7 +14,8 @@ http:
         "top_k": 5,
         "version_filter": "9.3.37.2",
         "module_filter": "General",
-        "year_filter": "2026"
+        "year_filter": "2026",
+        "mode": "local"
       }
   auth: inherit
 

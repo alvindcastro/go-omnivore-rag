@@ -11,8 +11,13 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"go-omnivore-rag/config"
 	"go-omnivore-rag/internal/api"
@@ -32,8 +37,31 @@ func main() {
 
 	router := api.NewRouter(cfg)
 
-	addr := fmt.Sprintf(":%s", cfg.APIPort)
-	if err := router.Run(addr); err != nil {
-		log.Fatalf("Server error: %v", err)
+	srv := &http.Server{
+		Addr:    ":" + cfg.APIPort,
+		Handler: router,
 	}
+
+	// Start server in a goroutine so the main goroutine can listen for signals.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	// Block until SIGTERM (sent by ACA/Docker on shutdown) or SIGINT (Ctrl-C).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+
+	// Give in-flight requests up to 30 seconds to complete before hard-stopping.
+	// ACA waits 30 s after SIGTERM before sending SIGKILL, so these match.
+	log.Println("Shutting down — draining in-flight requests (30s max)...")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Forced shutdown after timeout: %v", err)
+	}
+	log.Println("Server stopped.")
 }

@@ -16,6 +16,13 @@ import (
 	"go-omnivore-rag/config"
 )
 
+// Source type values stored in the index.
+const (
+	SourceTypeBanner      = "banner"
+	SourceTypeBannerGuide = "banner_user_guide"
+	SourceTypeSOP         = "sop"
+)
+
 // SearchClient wraps Azure AI Search REST calls.
 type SearchClient struct {
 	cfg        *config.Config
@@ -81,6 +88,8 @@ func (c *SearchClient) CreateIndex() error {
 			// SOP-specific metadata
 			{"name": "sop_number", "type": "Edm.String", "filterable": true, "facetable": true},
 			{"name": "document_title", "type": "Edm.String", "searchable": true, "filterable": true, "analyzer": "en.microsoft"},
+			// Section heading detected during chunking (user guide documents)
+			{"name": "section", "type": "Edm.String", "searchable": true, "filterable": true, "analyzer": "en.microsoft"},
 			{
 				"name":       "chunk_text",
 				"type":       "Edm.String",
@@ -242,9 +251,10 @@ type ChunkDocument struct {
 	BannerModule  string    `json:"banner_module"`
 	BannerVersion string    `json:"banner_version"`
 	Year          string    `json:"year"`
-	SourceType    string    `json:"source_type"`    // "banner" or "sop"
+	SourceType    string    `json:"source_type"`    // "banner", "banner_user_guide", or "sop"
 	SOPNumber     string    `json:"sop_number"`     // e.g. "154"  (SOP only)
 	DocumentTitle string    `json:"document_title"` // e.g. "Start Stop Axiom Server" (SOP only)
+	Section       string    `json:"section"`        // detected heading (user guide only)
 	ChunkText     string    `json:"chunk_text"`
 	ContentVector []float32 `json:"content_vector"`
 }
@@ -300,6 +310,7 @@ type SearchResult struct {
 	SourceType    string  `json:"source_type"`
 	SOPNumber     string  `json:"sop_number"`
 	DocumentTitle string  `json:"document_title"`
+	Section       string  `json:"section"`
 	ChunkText     string  `json:"chunk_text"`
 	Score         float64 `json:"@search.score"`
 }
@@ -314,6 +325,7 @@ func (c *SearchClient) HybridSearch(
 	moduleFilter string,
 	yearFilter string,
 	sourceTypeFilter string,
+	sectionFilter string,
 ) ([]SearchResult, error) {
 	url := fmt.Sprintf(
 		"%s/indexes/%s/docs/search?api-version=2024-03-01-Preview",
@@ -324,7 +336,7 @@ func (c *SearchClient) HybridSearch(
 	searchBody := map[string]any{
 		"search": queryText, // BM25 keyword leg
 		"top":    topK,
-		"select": "id,filename,page_number,banner_module,banner_version,year,source_type,sop_number,document_title,chunk_text",
+		"select": "id,filename,page_number,banner_module,banner_version,year,source_type,sop_number,document_title,section,chunk_text",
 		"vectorQueries": []map[string]any{
 			{
 				"kind":   "vector",
@@ -350,6 +362,9 @@ func (c *SearchClient) HybridSearch(
 	}
 	if yearFilter != "" {
 		filters = append(filters, fmt.Sprintf("year eq '%s'", yearFilter))
+	}
+	if sectionFilter != "" {
+		filters = append(filters, fmt.Sprintf("section eq '%s'", strings.ReplaceAll(sectionFilter, "'", "''")))
 	}
 	if len(filters) > 0 {
 		searchBody["filter"] = strings.Join(filters, " and ")

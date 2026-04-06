@@ -1,21 +1,22 @@
 info:
   name: Ask
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/banner/student/ask"
+  url: "{{base_url}}/banner/ar/ask"
   body:
     type: json
     data: |-
       {
-        "question": "What is a CRN in Banner Student?",
+        "question": "How do I set up a payment plan for a student account in Banner AR?",
         "top_k": 5,
         "version_filter": "",
-        "module_filter": "Student",
+        "year_filter": "",
         "section_filter": "",
-        "mode": "local"
+        "source_type": "",
+        "mode": "auto"
       }
   auth: inherit
 

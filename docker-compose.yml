@@ -1,0 +1,32 @@
+services:
+  http:
+    build: .
+    image: go-omnivore-rag
+    command: ["./omnivore-http"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  grpc:
+    image: go-omnivore-rag
+    command: ["./omnivore-grpc"]
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      http:
+        condition: service_healthy
+    restart: unless-stopped

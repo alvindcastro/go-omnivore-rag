@@ -29,6 +29,15 @@ type Config struct {
 	AzureStorageContainerName    string
 	AzureStorageBlobPrefix       string
 
+	// Web Search (Tavily)
+	TavilyAPIKey  string
+	WebSearchTopK int
+
+	// Confidence-based routing thresholds (auto mode)
+	// Azure AI Search RRF hybrid scores typically range from ~0.005 to 0.05+.
+	ConfidenceHighThreshold float64 // score >= HIGH  → local only
+	ConfidenceLowThreshold  float64 // score <  LOW   → web only; between → hybrid
+
 	// RAG tuning
 	ChunkSize    int
 	ChunkOverlap int
@@ -64,6 +73,14 @@ func Load() *Config {
 		AzureStorageContainerName:    getEnv("AZURE_STORAGE_CONTAINER_NAME", "banner-release-notes"),
 		AzureStorageBlobPrefix:       getEnv("AZURE_STORAGE_BLOB_PREFIX", ""),
 
+		// Web Search (Tavily)
+		TavilyAPIKey:  getEnv("TAVILY_API_KEY", ""),
+		WebSearchTopK: getEnvInt("WEB_SEARCH_TOP_K", 5),
+
+		// Confidence-based routing
+		ConfidenceHighThreshold: getEnvFloat("CONFIDENCE_HIGH_THRESHOLD", 0.030),
+		ConfidenceLowThreshold:  getEnvFloat("CONFIDENCE_LOW_THRESHOLD", 0.010),
+
 		// RAG tuning
 		ChunkSize:    getEnvInt("CHUNK_SIZE", 1000),
 		ChunkOverlap: getEnvInt("CHUNK_OVERLAP", 150),
@@ -98,6 +115,16 @@ func getEnvInt(key string, defaultVal int) int {
 	if val := os.Getenv(key); val != "" {
 		if i, err := strconv.Atoi(val); err == nil {
 			return i
+		}
+	}
+	return defaultVal
+}
+
+// getEnvFloat returns the env var as float64 or a default.
+func getEnvFloat(key string, defaultVal float64) float64 {
+	if val := os.Getenv(key); val != "" {
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			return f
 		}
 	}
 	return defaultVal

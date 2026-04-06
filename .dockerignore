@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+
+# Local secrets — never bake into the image
+.env
+.env.*
+
+# Generated at build time inside the Dockerfile
+docs/
+gen/
+
+# Documents — mounted as a volume at runtime, not baked in
+data/
+
+# Blog — not part of the application
+blog/
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+*.test
+coverage.out
+
+# Brainstorm / planning docs (no effect on build, just reduces context size)
+INTERNALS.md
+INTEGRATIONS.md
+AZURE_FUNCTIONS.md
+DOCKER_ACA.md
+
+# Memory
+memory/

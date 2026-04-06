@@ -1,21 +1,22 @@
 info:
   name: Ask
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: "{{base_url}}/banner/student/ask"
+  url: "{{base_url}}/banner/general/ask"
   body:
     type: json
     data: |-
       {
-        "question": "What is a CRN in Banner Student?",
+        "question": "What are the prerequisites for upgrading Banner to 9.3.37.2?",
         "top_k": 5,
-        "version_filter": "",
-        "module_filter": "Student",
+        "version_filter": "9.3.37.2",
+        "year_filter": "",
         "section_filter": "",
-        "mode": "local"
+        "source_type": "",
+        "mode": "auto"
       }
   auth: inherit
 

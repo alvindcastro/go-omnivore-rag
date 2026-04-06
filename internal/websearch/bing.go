@@ -1,8 +1,10 @@
-// internal/azure/bing.go
-// Bing Web Search client scoped to trusted Ellucian domains.
+// internal/websearch/bing.go
+// Bing Web Search v7 client — alternative web search backend.
+// The active backend is TavilyClient (internal/websearch/tavily.go).
+// Both satisfy the WebSearcher interface and are interchangeable.
 // Only searches official Ellucian-owned properties to avoid noise from
 // third-party forums, resellers, or outdated mirrors.
-package azure
+package websearch
 
 import (
 	"encoding/json"
@@ -23,14 +25,21 @@ var TrustedEllucianDomains = []string{
 	"resources.ellucian.com", // resource centre (white papers, guides)
 }
 
-// BingResult is a single web search result.
-type BingResult struct {
+// WebSearcher is the interface satisfied by TavilyClient and BingClient.
+// The RAG pipeline depends on this interface, not the concrete types.
+type WebSearcher interface {
+	Search(query string, topK int) ([]WebResult, error)
+}
+
+// WebResult is a single web search result returned by any WebSearcher.
+type WebResult struct {
 	Title   string `json:"title"`
 	URL     string `json:"url"`
 	Snippet string `json:"snippet"`
 }
 
 // BingClient calls the Bing Web Search v7 API.
+// Use NewTavilyClient for the active web search backend.
 type BingClient struct {
 	apiKey     string
 	httpClient *http.Client
@@ -53,7 +62,7 @@ const bingSearchEndpoint = "https://api.bing.microsoft.com/v7.0/search"
 // Search queries Bing restricted to TrustedEllucianDomains.
 // The site filter is prepended to every query so only trusted Ellucian
 // properties appear in results.
-func (b *BingClient) Search(query string, topK int) ([]BingResult, error) {
+func (b *BingClient) Search(query string, topK int) ([]WebResult, error) {
 	if topK <= 0 {
 		topK = 5
 	}
@@ -97,9 +106,9 @@ func (b *BingClient) Search(query string, topK int) ([]BingResult, error) {
 		return nil, fmt.Errorf("parse bing response: %w", err)
 	}
 
-	results := make([]BingResult, 0, len(bingResp.WebPages.Value))
+	results := make([]WebResult, 0, len(bingResp.WebPages.Value))
 	for _, v := range bingResp.WebPages.Value {
-		results = append(results, BingResult{
+		results = append(results, WebResult{
 			Title:   v.Name,
 			URL:     v.URL,
 			Snippet: v.Snippet,
@@ -108,7 +117,7 @@ func (b *BingClient) Search(query string, topK int) ([]BingResult, error) {
 	return results, nil
 }
 
-// buildSiteFilter constructs a Bing site: restriction for multiple domains.
+// buildSiteFilter constructs a site: restriction for multiple domains.
 // e.g. "(site:docs.ellucian.com OR site:community.ellucian.com)"
 func buildSiteFilter(domains []string) string {
 	parts := make([]string, len(domains))

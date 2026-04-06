@@ -85,7 +85,11 @@ func Run(cfg *config.Config, docsPath string, overwrite bool, pagesPerBatch int,
 		if isSopDocument(filePath) {
 			n, err = ingestSopFile(filePath, cfg, openai, search)
 		} else {
-			n, err = ingestFile(filePath, cfg, openai, search, pagesPerBatch, startPage, endPage)
+			sourceType := azure.SourceTypeBanner
+			if isUserGuideDocument(filePath) {
+				sourceType = azure.SourceTypeBannerGuide
+			}
+			n, err = ingestFile(filePath, cfg, openai, search, pagesPerBatch, startPage, endPage, sourceType)
 		}
 		if err != nil {
 			log.Printf("  ✗ Error: %v", err)
@@ -118,6 +122,7 @@ func ingestFile(
 	pagesPerBatch int,
 	startPage int,
 	endPage int,
+	sourceType string,
 ) (int, error) {
 	filename := filepath.Base(filePath)
 	meta := parseMetadata(filePath)
@@ -150,6 +155,7 @@ func ingestFile(
 
 	totalChunks := 0
 	batchSize := pagesPerBatch
+	currentSection := "" // persists across batches for section-aware chunking
 
 	for i := 0; i < len(pages); i += batchSize {
 		end := i + batchSize
@@ -164,17 +170,30 @@ func ingestFile(
 		chunkIndex := 0
 
 		for _, page := range batch {
-			chunks := chunkText(page.text, cfg.ChunkSize, cfg.ChunkOverlap)
-			log.Printf("    Page %d produced %d chunks", page.pageNum, len(chunks))
-			for _, chunk := range chunks {
-				chunk = sanitizeText(chunk)
-				if chunk == "" {
+			// Choose chunking strategy based on document type.
+			var schunks []sectionChunk
+			if sourceType == "banner_user_guide" {
+				var updated string
+				schunks, updated = chunkStudentText(page.text, currentSection, cfg.ChunkSize, cfg.ChunkOverlap)
+				currentSection = updated
+			} else {
+				raw := chunkText(page.text, cfg.ChunkSize, cfg.ChunkOverlap)
+				schunks = make([]sectionChunk, len(raw))
+				for i, t := range raw {
+					schunks[i] = sectionChunk{text: t}
+				}
+			}
+
+			log.Printf("    Page %d produced %d chunks", page.pageNum, len(schunks))
+			for _, sc := range schunks {
+				sc.text = sanitizeText(sc.text)
+				if sc.text == "" {
 					continue
 				}
 
-				log.Printf("    Embedding chunk %d (page %d, %d chars)...", chunkIndex, page.pageNum, len(chunk))
+				log.Printf("    Embedding chunk %d (page %d, %d chars)...", chunkIndex, page.pageNum, len(sc.text))
 
-				vector, err := openai.EmbedText(chunk)
+				vector, err := openai.EmbedText(sc.text)
 				if err != nil {
 					log.Printf("    ⚠ Skipping chunk %d — error: %v", chunkIndex, err)
 					chunkIndex++
@@ -186,11 +205,12 @@ func ingestFile(
 					ID:            chunkID(filename, page.pageNum, chunkIndex),
 					Filename:      filename,
 					PageNumber:    page.pageNum,
-					SourceType:    "banner",
+					SourceType:    sourceType,
 					BannerModule:  meta.module,
 					BannerVersion: meta.version,
 					Year:          meta.year,
-					ChunkText:     chunk,
+					Section:       sc.section,
+					ChunkText:     sc.text,
 					ContentVector: vector,
 				})
 				chunkIndex++
@@ -478,7 +498,7 @@ func ingestSopFile(
 			ID:            chunkID(filename, 0, i),
 			Filename:      filename,
 			PageNumber:    i + 1, // repurposed as chunk number for SOPs
-			SourceType:    "sop",
+			SourceType:    azure.SourceTypeSOP,
 			SOPNumber:     meta.number,
 			DocumentTitle: meta.title,
 			ChunkText:     chunk.Text,

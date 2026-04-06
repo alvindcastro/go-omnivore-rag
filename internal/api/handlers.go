@@ -17,6 +17,7 @@ import (
 	"go-omnivore-rag/internal/azure"
 	"go-omnivore-rag/internal/ingest"
 	"go-omnivore-rag/internal/rag"
+	"go-omnivore-rag/internal/websearch"
 )
 
 // Handler holds shared dependencies injected at startup.
@@ -31,11 +32,12 @@ type Handler struct {
 func NewHandler(cfg *config.Config) *Handler {
 	openai := azure.NewOpenAIClient(cfg)
 	search := azure.NewSearchClient(cfg)
+	tavily := websearch.NewTavilyClient(cfg.TavilyAPIKey) // nil when TAVILY_API_KEY is unset
 	return &Handler{
 		cfg:      cfg,
 		openai:   openai,
 		search:   search,
-		pipeline: rag.NewPipeline(openai, search),
+		pipeline: rag.NewPipeline(openai, search, tavily, cfg.ConfidenceHighThreshold, cfg.ConfidenceLowThreshold),
 	}
 }
 
@@ -136,6 +138,7 @@ type bannerAskRequest struct {
 	VersionFilter string `json:"version_filter"`
 	ModuleFilter  string `json:"module_filter"`
 	YearFilter    string `json:"year_filter"`
+	Mode          string `json:"mode"` // "local" (default), "web", "hybrid", "auto"
 }
 
 // BannerAsk godoc
@@ -168,7 +171,8 @@ func (h *Handler) BannerAsk(c *gin.Context) {
 		VersionFilter:    req.VersionFilter,
 		ModuleFilter:     req.ModuleFilter,
 		YearFilter:       req.YearFilter,
-		SourceTypeFilter: "banner",
+		SourceTypeFilter: azure.SourceTypeBanner,
+		Mode:             req.Mode,
 	})
 	if err != nil {
 		log.Printf("[banner/ask] error: %v", err)
@@ -180,7 +184,76 @@ func (h *Handler) BannerAsk(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-type bannerIngestRequest struct {
+// moduleAskRequest is the body for the module-scoped ask endpoint.
+// The Banner module is taken from the URL path (:module), not this body.
+type moduleAskRequest struct {
+	Question      string `json:"question"       binding:"required,min=5"`
+	TopK          int    `json:"top_k"`
+	VersionFilter string `json:"version_filter"`
+	YearFilter    string `json:"year_filter"`
+	SectionFilter string `json:"section_filter"`
+	SourceType    string `json:"source_type"` // optional — narrows to a specific doc type
+	Mode          string `json:"mode"`        // "local" (default), "web", "hybrid", "auto"
+}
+
+// ModuleAsk godoc
+//
+//	@Summary	Ask a question scoped to a specific Banner module
+//	@Description	Module is taken from the URL path (e.g. /banner/finance/ask). Supported values: finance, student, hr, financial-aid, ar, general.
+//	@Tags		banner
+//	@Accept		json
+//	@Produce	json
+//	@Param		module	path		string				true	"Banner module name"
+//	@Param		body	body		moduleAskRequest	true	"Question payload"
+//	@Success	200		{object}	rag.AskResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/{module}/ask [post]
+func (h *Handler) ModuleAsk(c *gin.Context) {
+	module := c.Param("module")
+
+	var req moduleAskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.TopK == 0 {
+		req.TopK = h.cfg.TopKDefault
+	}
+
+	log.Printf("[banner/%s/ask] Q: %q | top_k=%d | mode=%s | version=%s",
+		module, req.Question, req.TopK, req.Mode, req.VersionFilter)
+
+	resp, err := h.pipeline.Ask(rag.AskRequest{
+		Question:         req.Question,
+		TopK:             req.TopK,
+		ModuleFilter:     module,
+		VersionFilter:    req.VersionFilter,
+		YearFilter:       req.YearFilter,
+		SectionFilter:    req.SectionFilter,
+		SourceTypeFilter: req.SourceType,
+		Mode:             req.Mode,
+	})
+	if err != nil {
+		log.Printf("[banner/%s/ask] error: %v", module, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/%s/ask] A: %d chars | %d sources | routed=%s",
+		module, len(resp.Answer), resp.RetrievalCount, routingMode(resp))
+	c.JSON(http.StatusOK, resp)
+}
+
+// routingMode returns the effective mode string for logging, including auto-routing decisions.
+func routingMode(resp *rag.AskResponse) string {
+	if resp.Routing != nil {
+		return "auto→" + resp.Routing.ModeUsed
+	}
+	return "explicit"
+}
+
+type ingestRequest struct {
 	Overwrite     bool   `json:"overwrite"`
 	DocsPath      string `json:"docs_path"`
 	PagesPerBatch int    `json:"pages_per_batch"`
@@ -194,12 +267,12 @@ type bannerIngestRequest struct {
 //	@Tags		banner
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body		bannerIngestRequest	false	"Ingest options"
+//	@Param		body	body		ingestRequest	false	"Ingest options"
 //	@Success	200		{object}	map[string]any
 //	@Failure	500		{object}	map[string]string
 //	@Router		/banner/ingest [post]
 func (h *Handler) BannerIngest(c *gin.Context) {
-	var req bannerIngestRequest
+	var req ingestRequest
 	_ = c.ShouldBindJSON(&req)
 	if req.DocsPath == "" {
 		req.DocsPath = "data/docs/banner"
@@ -435,11 +508,107 @@ func (h *Handler) handleSummarize(c *gin.Context, topic string) {
 	c.JSON(http.StatusOK, result)
 }
 
+// StudentProcedure godoc
+//
+//	@Summary	Get step-by-step instructions for a Banner Student task
+//	@Tags		student
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.ProcedureRequest	true	"Procedure request"
+//	@Success	200		{object}	rag.ProcedureResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/student/procedure [post]
+func (h *Handler) StudentProcedure(c *gin.Context) {
+	var req rag.ProcedureRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/procedure] topic: %q", req.Topic)
+
+	resp, err := h.pipeline.StudentProcedure(req)
+	if err != nil {
+		log.Printf("[banner/student/procedure] error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/procedure] %d sources", resp.RetrievalCount)
+	c.JSON(http.StatusOK, resp)
+}
+
+// StudentLookup godoc
+//
+//	@Summary	Look up a Banner Student concept or feature definition
+//	@Tags		student
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.LookupRequest	true	"Lookup request"
+//	@Success	200		{object}	rag.LookupResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/student/lookup [post]
+func (h *Handler) StudentLookup(c *gin.Context) {
+	var req rag.LookupRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/lookup] term: %q", req.Term)
+
+	resp, err := h.pipeline.StudentLookup(req)
+	if err != nil {
+		log.Printf("[banner/student/lookup] error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/lookup] %d sources", resp.RetrievalCount)
+	c.JSON(http.StatusOK, resp)
+}
+
+// StudentCrossReference godoc
+//
+//	@Summary	Analyse how a Banner release change affects Student user guide procedures
+//	@Tags		student
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		rag.CrossReferenceRequest	true	"Cross-reference request"
+//	@Success	200		{object}	rag.CrossReferenceResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/student/cross-reference [post]
+func (h *Handler) StudentCrossReference(c *gin.Context) {
+	var req rag.CrossReferenceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/cross-reference] Q: %q | version=%s | module=%s",
+		req.Question, req.VersionFilter, req.ModuleFilter)
+
+	resp, err := h.pipeline.StudentCrossReference(req)
+	if err != nil {
+		log.Printf("[banner/student/cross-reference] error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/cross-reference] release=%d guide=%d sources",
+		len(resp.ReleaseSources), len(resp.GuideSources))
+	c.JSON(http.StatusOK, resp)
+}
+
 // ─── SOP ──────────────────────────────────────────────────────────────────────
 
 type sopAskRequest struct {
 	Question string `json:"question" binding:"required,min=5"`
 	TopK     int    `json:"top_k"`
+	Mode     string `json:"mode"` // "local" (default), "web", "hybrid"
 }
 
 // SopAsk godoc
@@ -468,7 +637,8 @@ func (h *Handler) SopAsk(c *gin.Context) {
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:         req.Question,
 		TopK:             req.TopK,
-		SourceTypeFilter: "sop",
+		SourceTypeFilter: azure.SourceTypeSOP,
+		Mode:             req.Mode,
 	})
 	if err != nil {
 		log.Printf("[sop/ask] error: %v", err)
@@ -502,6 +672,91 @@ func (h *Handler) SopIngest(c *gin.Context) {
 	log.Printf("[sop/ingest] path=%s overwrite=%v", sopPath, req.Overwrite)
 
 	result, err := ingest.Run(h.cfg, sopPath, req.Overwrite, 0, 0, 0)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// ─── Student User Guide ───────────────────────────────────────────────────────
+
+type studentAskRequest struct {
+	Question      string `json:"question"       binding:"required,min=5"`
+	TopK          int    `json:"top_k"`
+	VersionFilter string `json:"version_filter"`
+	ModuleFilter  string `json:"module_filter"`
+	SectionFilter string `json:"section_filter"`
+	Mode          string `json:"mode"` // "local" (default), "web", "hybrid", "auto"
+}
+
+// StudentAsk godoc
+//
+//	@Summary	Ask a question against Banner Student user guide
+//	@Tags		student
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		studentAskRequest	true	"Question payload"
+//	@Success	200		{object}	rag.AskResponse
+//	@Failure	400		{object}	map[string]string
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/student/ask [post]
+func (h *Handler) StudentAsk(c *gin.Context) {
+	var req studentAskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if req.TopK == 0 {
+		req.TopK = h.cfg.TopKDefault
+	}
+
+	log.Printf("[banner/student/ask] Q: %q | top_k=%d | version=%s | module=%s",
+		req.Question, req.TopK, req.VersionFilter, req.ModuleFilter)
+
+	resp, err := h.pipeline.Ask(rag.AskRequest{
+		Question:         req.Question,
+		TopK:             req.TopK,
+		VersionFilter:    req.VersionFilter,
+		ModuleFilter:     req.ModuleFilter,
+		SectionFilter:    req.SectionFilter,
+		SourceTypeFilter: azure.SourceTypeBannerGuide,
+		Mode:             req.Mode,
+	})
+	if err != nil {
+		log.Printf("[banner/student/ask] error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[banner/student/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	c.JSON(http.StatusOK, resp)
+}
+
+// StudentIngest godoc
+//
+//	@Summary	Ingest Banner Student user guide PDFs into the search index
+//	@Tags		student
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		ingestRequest	false	"Ingest options"
+//	@Success	200		{object}	map[string]any
+//	@Failure	500		{object}	map[string]string
+//	@Router		/banner/student/ingest [post]
+func (h *Handler) StudentIngest(c *gin.Context) {
+	var req ingestRequest
+	_ = c.ShouldBindJSON(&req)
+	if req.DocsPath == "" {
+		req.DocsPath = "data/docs/banner/student/usage"
+	}
+	if req.PagesPerBatch == 0 {
+		req.PagesPerBatch = 10
+	}
+
+	log.Printf("[banner/student/ingest] path=%s overwrite=%v pages_per_batch=%d start=%d end=%d",
+		req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
+
+	result, err := ingest.Run(h.cfg, req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -1,0 +1,7 @@
+info:
+  name: Financial Aid
+  type: folder
+  seq: 13
+
+request:
+  auth: inherit

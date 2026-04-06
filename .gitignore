@@ -30,3 +30,6 @@ gen/go/
 
 # Generated Swagger docs (re-create with `go generate ./internal/api/`)
 docs/
+
+# Claude Code memory (local to this machine)
+memory/
