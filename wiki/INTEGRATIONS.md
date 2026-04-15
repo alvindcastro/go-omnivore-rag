@@ -1,20 +1,25 @@
-# Integration Brainstorm: LangGraph + n8n
+# Integration Brainstorm: LangGraph, n8n, MCP, and More
 
-Ideas for wiring go-omnivore-rag into LangGraph agent workflows and n8n automation pipelines.
+Ideas for wiring go-omnivore-rag into external agent frameworks, automation pipelines,
+evaluation tools, and AI assistant ecosystems.
 This is a brainstorm — not all ideas are equal or immediately practical.
 
 ---
 
 ## Table of Contents
 
-1. [Prerequisites Before Either Integration](#prerequisites-before-either-integration)
+1. [Prerequisites Before Any Integration](#prerequisites-before-either-integration)
 2. [LangGraph — What It Buys You](#langgraph--what-it-buys-you)
 3. [LangGraph Ideas](#langgraph-ideas)
 4. [n8n — What It Buys You](#n8n--what-it-buys-you)
 5. [n8n Ideas](#n8n-ideas)
 6. [Hybrid: LangGraph + n8n Together](#hybrid-langgraph--n8n-together)
-7. [Implementation Priority](#implementation-priority)
-8. [Things That Need to Be Built First](#things-that-need-to-be-built-first)
+7. [MCP Server — Claude Desktop & Cursor Integration](#mcp-server--claude-desktop--cursor-integration)
+8. [OpenAI-Compatible API Layer](#openai-compatible-api-layer)
+9. [RAG Evaluation Frameworks](#rag-evaluation-frameworks)
+10. [Direct Teams & Slack Bots (Without n8n)](#direct-teams--slack-bots-without-n8n)
+11. [Implementation Priority](#implementation-priority)
+12. [Things That Need to Be Built First](#things-that-need-to-be-built-first)
 
 ---
 
@@ -631,6 +636,379 @@ n8n: Branch based on result → Slack / Jira / email / archive
 
 ---
 
+## MCP Server — Claude Desktop & Cursor Integration
+
+### What MCP Is
+
+The [Model Context Protocol](https://modelcontextprotocol.io) is an open standard that lets AI
+assistants (Claude Desktop, Cursor, VS Code Copilot, Continue.dev) call external tools and
+resources defined by a local or remote server. An MCP server exposes *tools*, *resources*, and
+*prompts* — the assistant decides when to invoke them.
+
+**What this unlocks:** A developer in Cursor asks "what changed in Banner Finance 9.3.22?" and
+the assistant automatically calls go-omnivore-rag, gets the answer, and cites the source chunks
+— without the developer opening Bruno or writing a curl command.
+
+### Go MCP Server
+
+```go
+// go get github.com/mark3labs/mcp-go
+// cmd/mcp/main.go
+
+package main
+
+import (
+    "go-omnivore-rag/config"
+    "go-omnivore-rag/internal/azure"
+    "go-omnivore-rag/internal/rag"
+    "go-omnivore-rag/internal/websearch"
+
+    mcp "github.com/mark3labs/mcp-go/server"
+)
+
+func main() {
+    cfg := config.Load()
+    openai := azure.NewOpenAIClient(cfg)
+    search := azure.NewSearchClient(cfg)
+    tavily := websearch.NewTavilyClient(cfg.TavilyAPIKey)
+    pipeline := rag.NewPipeline(openai, search, tavily, cfg.ConfidenceHighThreshold, cfg.ConfidenceLowThreshold)
+
+    s := mcp.NewMCPServer("go-omnivore-rag", "1.0.0")
+
+    s.AddTool(mcp.NewTool("banner_ask",
+        mcp.WithDescription("Ask a question about Ellucian Banner ERP release notes"),
+        mcp.WithString("question", mcp.Required(), mcp.Description("The question to answer")),
+        mcp.WithString("version_filter", mcp.Description("e.g. '9.3.37.2'")),
+        mcp.WithString("module_filter", mcp.Description("e.g. 'Finance', 'Student', 'General'")),
+    ), func(args map[string]any) (*mcp.ToolResult, error) {
+        // call pipeline.Ask(...) and return the answer
+    })
+
+    s.AddTool(mcp.NewTool("sop_ask",
+        mcp.WithDescription("Ask a question about internal Standard Operating Procedures"),
+        mcp.WithString("question", mcp.Required()),
+    ), func(args map[string]any) (*mcp.ToolResult, error) {
+        // call pipeline.SOPAsk(...)
+    })
+
+    s.AddTool(mcp.NewTool("banner_summarize",
+        mcp.WithDescription("Get a structured summary of Banner release changes, breaking changes, and action items"),
+        mcp.WithString("version", mcp.Required()),
+        mcp.WithString("module"),
+    ), func(args map[string]any) (*mcp.ToolResult, error) {
+        // call pipeline.SummarizeFull(...)
+    })
+
+    mcp.ServeStdio(s) // Claude Desktop uses stdio transport
+}
+```
+
+### Claude Desktop Configuration
+
+```json
+// ~/Library/Application Support/Claude/claude_desktop_config.json  (macOS)
+// %APPDATA%\Claude\claude_desktop_config.json                       (Windows)
+{
+  "mcpServers": {
+    "omnivore-rag": {
+      "command": "C:/path/to/omnivore-mcp.exe",
+      "env": {
+        "AZURE_OPENAI_API_KEY": "<key>",
+        "AZURE_SEARCH_API_KEY": "<key>",
+        "AZURE_OPENAI_ENDPOINT": "https://..."
+      }
+    }
+  }
+}
+```
+
+### Cursor / VS Code Configuration
+
+Same binary, different config file path:
+```json
+// .cursor/mcp.json  (per-project)
+{
+  "mcpServers": {
+    "omnivore-rag": {
+      "command": "./bin/omnivore-mcp"
+    }
+  }
+}
+```
+
+Now any Cursor user in the repo can ask "What are the action items for this Banner upgrade?"
+and get a grounded answer from the actual release notes, cited from the indexed documents.
+
+### MCP Resources
+
+Beyond tools, the MCP server can expose *resources* — read-only data the assistant can browse:
+
+```go
+s.AddResource("omnivore://sop/list", "List of all indexed SOPs", func() (*mcp.Resource, error) {
+    // return the SOP listing
+})
+s.AddResource("omnivore://index/stats", "Search index statistics", func() (*mcp.Resource, error) {
+    // return index stats
+})
+```
+
+---
+
+## OpenAI-Compatible API Layer
+
+### What It Is
+
+An `/v1/chat/completions` endpoint that speaks the OpenAI API format, with go-omnivore-rag
+acting as the RAG backend. Any client built against the OpenAI SDK — Python, Node.js, Cursor,
+Continue.dev, Open WebUI — can point its `base_url` at this server and get RAG-grounded answers
+without any code changes.
+
+### Why It's Useful
+
+- **Drop-in replacement:** Tools that already call OpenAI can use go-omnivore-rag by changing
+  one URL. No integration code needed.
+- **Open WebUI:** A self-hosted ChatGPT-like UI that speaks OpenAI API. Point it at this server
+  for an instant internal knowledge assistant UI.
+- **Continue.dev:** A VS Code extension for AI-assisted coding. Can call a custom OpenAI-compatible
+  endpoint for project-specific context.
+
+### Implementation Sketch
+
+```go
+// POST /v1/chat/completions
+type openAIRequest struct {
+    Model    string `json:"model"`
+    Messages []struct {
+        Role    string `json:"role"`
+        Content string `json:"content"`
+    } `json:"messages"`
+    Stream bool `json:"stream"`
+}
+
+func (h *Handler) OpenAICompat(c *gin.Context) {
+    var req openAIRequest
+    c.ShouldBindJSON(&req)
+
+    // Extract the last user message as the question
+    var question string
+    for i := len(req.Messages) - 1; i >= 0; i-- {
+        if req.Messages[i].Role == "user" {
+            question = req.Messages[i].Content
+            break
+        }
+    }
+
+    // Run through the RAG pipeline
+    result, _ := h.pipeline.Ask(c.Request.Context(), rag.AskRequest{
+        Question: question,
+        Mode:     "auto",
+        TopK:     5,
+    })
+
+    // Return OpenAI-shaped response
+    c.JSON(200, gin.H{
+        "id":      "chatcmpl-" + uuid.NewString(),
+        "object":  "chat.completion",
+        "model":   "omnivore-rag",
+        "choices": []gin.H{{
+            "message": gin.H{
+                "role":    "assistant",
+                "content": result.Answer,
+            },
+            "finish_reason": "stop",
+            "index": 0,
+        }},
+    })
+}
+```
+
+### Open WebUI Setup
+
+```bash
+docker run -d -p 3000:8080 \
+  -e OPENAI_API_BASE_URL=http://host.docker.internal:8000/v1 \
+  -e OPENAI_API_KEY=your-omnivore-api-key \
+  ghcr.io/open-webui/open-webui:main
+```
+
+Open `localhost:3000` — you now have a ChatGPT-like interface backed by Banner and SOP knowledge.
+
+---
+
+## RAG Evaluation Frameworks
+
+Measuring answer quality is essential before trusting this system in production. These tools
+provide automated metrics for retrieval quality and answer faithfulness.
+
+### RAGAS (Recommended)
+
+[RAGAS](https://github.com/explodinggradients/ragas) measures four dimensions without human labels:
+
+| Metric | What it measures |
+|--------|-----------------|
+| **Faithfulness** | Is the answer supported by the retrieved context? (hallucination proxy) |
+| **Answer Relevancy** | Does the answer actually address the question? |
+| **Context Precision** | Are the retrieved chunks relevant? (retrieval quality) |
+| **Context Recall** | Were all relevant chunks retrieved? (needs ground truth) |
+
+```python
+# eval/ragas_eval.py
+from ragas import evaluate
+from ragas.metrics import faithfulness, answer_relevancy, context_precision
+from datasets import Dataset
+
+# Build test dataset from real questions
+test_cases = [
+    {
+        "question": "What are the prerequisites for Banner General 9.3.37.2?",
+        "answer": <answer from /banner/ask>,
+        "contexts": <source chunks from /banner/ask response>,
+    },
+    # ...
+]
+
+dataset = Dataset.from_list(test_cases)
+result = evaluate(dataset, metrics=[faithfulness, answer_relevancy, context_precision])
+print(result)
+# {'faithfulness': 0.87, 'answer_relevancy': 0.91, 'context_precision': 0.79}
+```
+
+**Where to get test questions:** Real questions from IT staff during Banner upgrades are the best
+source. Even 20 representative questions give a useful baseline.
+
+### DeepEval (Alternative)
+
+[DeepEval](https://github.com/confident-ai/deepeval) adds richer metrics:
+- **G-Eval** — GPT-4-based scoring with custom criteria
+- **Hallucination** — explicit hallucination detection (not just faithfulness proxy)
+- **Bias** — checks if answers show inappropriate bias
+- **Toxicity** — filters harmful content
+
+```python
+from deepeval import evaluate
+from deepeval.metrics import HallucinationMetric, AnswerRelevancyMetric
+from deepeval.test_case import LLMTestCase
+
+test_case = LLMTestCase(
+    input="What changed in Banner Finance 9.3.22?",
+    actual_output=<answer>,
+    retrieval_context=<chunks>,
+)
+
+evaluate([test_case], [HallucinationMetric(threshold=0.5), AnswerRelevancyMetric(threshold=0.7)])
+```
+
+### Eval-Driven Development Workflow
+
+```
+1. Build a "golden set" of 30–50 question/answer pairs (manually verified)
+2. Run evaluation before and after any RAG change (reranking, query rewriting, etc.)
+3. Only ship changes that improve (or don't degrade) faithfulness and relevancy
+4. Track metrics over time to detect model drift or index degradation
+```
+
+A simple CI step that runs `pytest eval/` with RAGAS and fails if faithfulness drops below 0.75
+catches regressions before they reach production.
+
+### Thumbs Up/Down Feedback Loop
+
+The simplest eval: ask users. Add `feedback_id` to the response and an endpoint to record ratings.
+
+```go
+// POST /feedback
+type FeedbackRequest struct {
+    FeedbackID string `json:"feedback_id"` // from AskResponse
+    Helpful    bool   `json:"helpful"`
+    Comment    string `json:"comment"`
+}
+```
+
+Log to Azure Table Storage or a simple file. Review weekly. Questions that consistently get
+thumbs-down identify gaps in the knowledge base or chunking problems.
+
+---
+
+## Direct Teams & Slack Bots (Without n8n)
+
+n8n is covered extensively above. If you want a leaner integration — a bot that calls
+go-omnivore-rag directly with no workflow engine — here are the minimal paths.
+
+### Microsoft Teams Bot (Azure Bot Service)
+
+```
+Teams message → Azure Bot Service webhook → Go HTTP handler → RAG pipeline → Teams reply
+```
+
+```go
+// Minimal Teams bot handler using the Bot Framework Activity schema
+// POST /teams/messages
+func (h *Handler) TeamsWebhook(c *gin.Context) {
+    var activity struct {
+        Type string `json:"type"`
+        Text string `json:"text"`
+        // ServiceURL, ConversationID etc for reply routing
+    }
+    c.ShouldBindJSON(&activity)
+
+    if activity.Type != "message" {
+        c.JSON(200, gin.H{})
+        return
+    }
+
+    result, _ := h.pipeline.Ask(c.Request.Context(), rag.AskRequest{
+        Question: activity.Text,
+        Mode:     "auto",
+        TopK:     5,
+    })
+
+    // POST reply back to Teams via activity.ServiceURL
+    sendTeamsReply(activity, result.Answer)
+    c.JSON(200, gin.H{})
+}
+```
+
+**Requirements:** Register an Azure Bot resource, configure the messaging endpoint to point at the
+deployed go-omnivore-rag URL. Teams handles auth — requests arrive with a JWT that the Bot Framework
+SDK verifies.
+
+### Slack App (Bolt or Direct Events API)
+
+```go
+// POST /slack/events  (Slack Events API)
+func (h *Handler) SlackWebhook(c *gin.Context) {
+    // Verify Slack signing secret
+    // Handle url_verification challenge
+
+    var event struct {
+        Event struct {
+            Type    string `json:"type"`
+            Text    string `json:"text"`
+            Channel string `json:"channel"`
+        } `json:"event"`
+    }
+    c.ShouldBindJSON(&event)
+
+    if event.Event.Type != "app_mention" {
+        c.JSON(200, gin.H{})
+        return
+    }
+
+    question := stripMention(event.Event.Text) // remove @BotName prefix
+    result, _ := h.pipeline.Ask(c.Request.Context(), rag.AskRequest{
+        Question: question,
+        Mode:     "auto",
+    })
+
+    postSlackMessage(event.Event.Channel, result.Answer)
+    c.JSON(200, gin.H{})
+}
+```
+
+**Requirements:** Create a Slack App, subscribe to `app_mention` events, set the request URL to
+the deployed endpoint, add `chat:write` bot scope.
+
+---
+
 ## Implementation Priority
 
 **Highest ROI, lowest effort:**
@@ -644,12 +1022,15 @@ n8n: Branch based on result → Slack / Jira / email / archive
 4. **n8n: SharePoint upload → auto ingest** — eliminates manual ingestion step
 5. **LangGraph: Router agent (Banner vs. SOP classifier)** — better UX than two separate endpoints
 6. **LangGraph: Upgrade Impact Analyzer graph** — structured parallel report generation
+7. **MCP server** — enables Claude Desktop, Cursor, and other MCP clients with minimal boilerplate
 
 **Longer term:**
 
-7. **LangGraph: Conversational memory agent** — requires a session management layer
-8. **LangGraph: Human-in-the-loop approval** — requires n8n or a UI to receive/send approvals
-9. **MCP server wrapper** — enables Claude Desktop, Cursor, and other MCP clients
+8. **LangGraph: Conversational memory agent** — requires a session management layer
+9. **LangGraph: Human-in-the-loop approval** — requires n8n or a UI to receive/send approvals
+10. **OpenAI-compatible API + Open WebUI** — instant chat UI, no frontend work
+11. **RAGAS evaluation pipeline** — required before trusting this in production workflows
+12. **Direct Teams/Slack bot** — replaces n8n for simpler notification-only scenarios
 
 ---
 
@@ -659,11 +1040,11 @@ Before any of the above works reliably:
 
 | What | Why Needed | Where | Status |
 |------|-----------|-------|--------|
-| API key auth middleware | Every external caller needs auth | `internal/api/router.go` | ⬜ TODO |
-| CORS middleware | n8n cloud / browser clients need it | `internal/api/router.go` | ⬜ TODO |
-| Request ID header | Correlate n8n workflow logs with go-omnivore-rag logs | `internal/api/router.go` | ⬜ TODO |
+| API key auth middleware | Every external caller needs auth | `internal/api/router.go` | ✅ Done |
+| CORS middleware | n8n cloud / browser clients need it | `internal/api/router.go` | ✅ Done |
+| Request ID header | Correlate n8n workflow logs with go-omnivore-rag logs | `internal/api/router.go` | ✅ Done |
 | Docker / stable network address | Both tools need a reachable URL (not localhost) | `Dockerfile` + `docker-compose.yml` | ✅ Done |
-| Structured JSON logging | Machine-parseable logs for observability | Replace `log.Printf` with `slog` | ⬜ TODO |
-| Confidence score in response | n8n conditions and LangGraph evaluation need it | Add `score` field to `AskResponse` | ⬜ TODO |
+| Structured JSON logging | Machine-parseable logs for observability | Replace `log.Printf` with `slog` | ✅ Done |
+| Confidence score in response | n8n conditions and LangGraph evaluation need it | `top_score` field on `AskResponse` | ✅ Done |
 
-Auth middleware is the remaining blocker. Everything else is nice-to-have before production use.
+All prerequisites are now in place. The API is ready for external orchestrator integration.

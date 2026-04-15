@@ -38,7 +38,7 @@ Covers *why* decisions were made, *how* things work internally, and *when* thing
 The core tension in this codebase is **simplicity vs. capability**. Every major decision resolves
 that tension toward simplicity:
 
-- **No middleware stack** — auth, rate limiting, CORS are all TODO
+- **Minimal middleware stack** — auth, CORS, and request ID are in place; rate limiting is TODO
 - **No ORM** — Azure Search documents are plain structs marshalled to JSON
 - **No DI framework** — dependencies are passed explicitly
 - **No background workers** — ingestion is synchronous and request-scoped
@@ -70,14 +70,15 @@ The language choice matters for how the code is structured.
 ## Package Responsibilities
 
 ```
-config/          → Loads env vars once. No logic. Panics if required vars are absent.
-internal/azure/  → Thin HTTP clients for OpenAI, Search, Blob. Each file = one Azure service.
-internal/ingest/ → Document pipeline: walk files → extract text → chunk → embed → upload.
-internal/rag/    → Query pipeline: embed question → hybrid search → build prompt → chat.
-internal/api/    → HTTP handlers and Gin router. Handlers are thin — delegate to rag/ingest.
+config/              → Loads env vars once. No logic. Panics if required vars are absent.
+internal/azure/      → Thin HTTP clients for Azure services only: OpenAI, AI Search, Blob Storage.
+internal/websearch/  → Web search clients: Bing and Tavily. WebSearcher interface lives here.
+internal/ingest/     → Document pipeline: walk files → extract text → chunk → embed → upload.
+internal/rag/        → Query pipeline: embed question → hybrid search → build prompt → chat.
+internal/api/        → HTTP handlers and Gin router. Handlers are thin — delegate to rag/ingest.
 internal/grpcserver/ → gRPC handlers. Scaffolded, not fully implemented.
-cmd/             → Entry points only. Wire config → dependencies → server start.
-proto/           → Service contracts. Source of truth for gRPC interface.
+cmd/                 → Entry points only. Wire config → dependencies → server start.
+proto/               → Service contracts. Source of truth for gRPC interface.
 ```
 
 **Dependency direction** (strict, no cycles):
@@ -568,13 +569,16 @@ text-based PDFs but will produce garbage or empty output for:
 **Symptom:** Chunks with garbage characters or empty text in the index.
 **Fix:** Pre-process problem PDFs with a proper OCR tool (e.g., Azure AI Document Intelligence).
 
-### 2. No Authentication
+### 2. Authentication
 
-There is no API key, JWT, or any form of auth on any endpoint. Anyone who can reach the server on
-port 8000 can ask questions, trigger ingestion, or recreate the index.
+API key authentication is implemented via `apiKeyMiddleware` in `internal/api/router.go`.
+Set `API_KEY` in `.env` to enable it. When set, all endpoints except `/health` and `/docs` require:
 
-**Fine for:** Local development, internal tools on a private network
-**Not fine for:** Any internet-facing deployment
+```
+Authorization: Bearer <your-api-key>
+```
+
+When `API_KEY` is empty the middleware is not registered — the server is open (suitable for local dev on a private network only).
 
 ### 3. Overwrite=true Deletes Everything
 

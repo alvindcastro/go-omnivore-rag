@@ -7,7 +7,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -162,8 +162,12 @@ func (h *Handler) BannerAsk(c *gin.Context) {
 		req.TopK = h.cfg.TopKDefault
 	}
 
-	log.Printf("[banner/ask] Q: %q | top_k=%d | version=%s | module=%s | year=%s",
-		req.Question, req.TopK, req.VersionFilter, req.ModuleFilter, req.YearFilter)
+	reqID, _ := c.Get("request_id")
+	slog.Info("banner/ask",
+		"question", req.Question, "top_k", req.TopK,
+		"version", req.VersionFilter, "module", req.ModuleFilter, "year", req.YearFilter,
+		"request_id", reqID,
+	)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:         req.Question,
@@ -175,12 +179,15 @@ func (h *Handler) BannerAsk(c *gin.Context) {
 		Mode:             req.Mode,
 	})
 	if err != nil {
-		log.Printf("[banner/ask] error: %v", err)
+		slog.Error("banner/ask failed", "error", err, "request_id", reqID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	slog.Info("banner/ask done",
+		"answer_len", len(resp.Answer), "sources", resp.RetrievalCount,
+		"top_score", resp.TopScore, "request_id", reqID,
+	)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -221,8 +228,12 @@ func (h *Handler) ModuleAsk(c *gin.Context) {
 		req.TopK = h.cfg.TopKDefault
 	}
 
-	log.Printf("[banner/%s/ask] Q: %q | top_k=%d | mode=%s | version=%s",
-		module, req.Question, req.TopK, req.Mode, req.VersionFilter)
+	reqID, _ := c.Get("request_id")
+	slog.Info("banner/module/ask",
+		"module", module, "question", req.Question, "top_k", req.TopK,
+		"mode", req.Mode, "version", req.VersionFilter,
+		"request_id", reqID,
+	)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:         req.Question,
@@ -235,13 +246,16 @@ func (h *Handler) ModuleAsk(c *gin.Context) {
 		Mode:             req.Mode,
 	})
 	if err != nil {
-		log.Printf("[banner/%s/ask] error: %v", module, err)
+		slog.Error("banner/module/ask failed", "module", module, "error", err, "request_id", reqID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/%s/ask] A: %d chars | %d sources | routed=%s",
-		module, len(resp.Answer), resp.RetrievalCount, routingMode(resp))
+	slog.Info("banner/module/ask done",
+		"module", module, "answer_len", len(resp.Answer),
+		"sources", resp.RetrievalCount, "routing", routingMode(resp),
+		"top_score", resp.TopScore, "request_id", reqID,
+	)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -281,8 +295,10 @@ func (h *Handler) BannerIngest(c *gin.Context) {
 		req.PagesPerBatch = 10
 	}
 
-	log.Printf("[banner/ingest] path=%s overwrite=%v pages_per_batch=%d start=%d end=%d",
-		req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
+	slog.Info("banner/ingest",
+		"path", req.DocsPath, "overwrite", req.Overwrite,
+		"pages_per_batch", req.PagesPerBatch, "start", req.StartPage, "end", req.EndPage,
+	)
 
 	result, err := ingest.Run(h.cfg, req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
 	if err != nil {
@@ -375,7 +391,7 @@ func (h *Handler) BlobSync(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[banner/blob/sync] container=%q prefix=%q", req.ContainerName, req.Prefix)
+	slog.Info("banner/blob/sync", "container", req.ContainerName, "prefix", req.Prefix)
 	downloaded, err := blobClient.DownloadDocuments(req.Prefix, "data/docs/banner", req.Overwrite)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -484,7 +500,7 @@ func (h *Handler) SummarizeFull(c *gin.Context) {
 	summarizer := rag.NewSummarizer(h.openai, h.search)
 	result, err := summarizer.SummarizeFull(req)
 	if err != nil {
-		log.Printf("[banner/summarize/full] error: %v", err)
+		slog.Error("banner/summarize/full failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -501,7 +517,7 @@ func (h *Handler) handleSummarize(c *gin.Context, topic string) {
 	summarizer := rag.NewSummarizer(h.openai, h.search)
 	result, err := summarizer.SummarizeTopic(req, topic)
 	if err != nil {
-		log.Printf("[banner/summarize/%s] error: %v", topic, err)
+		slog.Error("banner/summarize failed", "topic", topic, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -526,16 +542,16 @@ func (h *Handler) StudentProcedure(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[banner/student/procedure] topic: %q", req.Topic)
+	slog.Info("banner/student/procedure", "topic", req.Topic)
 
 	resp, err := h.pipeline.StudentProcedure(req)
 	if err != nil {
-		log.Printf("[banner/student/procedure] error: %v", err)
+		slog.Error("banner/student/procedure failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/student/procedure] %d sources", resp.RetrievalCount)
+	slog.Info("banner/student/procedure done", "sources", resp.RetrievalCount)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -557,16 +573,16 @@ func (h *Handler) StudentLookup(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[banner/student/lookup] term: %q", req.Term)
+	slog.Info("banner/student/lookup", "term", req.Term)
 
 	resp, err := h.pipeline.StudentLookup(req)
 	if err != nil {
-		log.Printf("[banner/student/lookup] error: %v", err)
+		slog.Error("banner/student/lookup failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/student/lookup] %d sources", resp.RetrievalCount)
+	slog.Info("banner/student/lookup done", "sources", resp.RetrievalCount)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -588,18 +604,20 @@ func (h *Handler) StudentCrossReference(c *gin.Context) {
 		return
 	}
 
-	log.Printf("[banner/student/cross-reference] Q: %q | version=%s | module=%s",
-		req.Question, req.VersionFilter, req.ModuleFilter)
+	slog.Info("banner/student/cross-reference",
+		"question", req.Question, "version", req.VersionFilter, "module", req.ModuleFilter,
+	)
 
 	resp, err := h.pipeline.StudentCrossReference(req)
 	if err != nil {
-		log.Printf("[banner/student/cross-reference] error: %v", err)
+		slog.Error("banner/student/cross-reference failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/student/cross-reference] release=%d guide=%d sources",
-		len(resp.ReleaseSources), len(resp.GuideSources))
+	slog.Info("banner/student/cross-reference done",
+		"release_sources", len(resp.ReleaseSources), "guide_sources", len(resp.GuideSources),
+	)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -632,7 +650,8 @@ func (h *Handler) SopAsk(c *gin.Context) {
 		req.TopK = h.cfg.TopKDefault
 	}
 
-	log.Printf("[sop/ask] Q: %q | top_k=%d", req.Question, req.TopK)
+	reqID, _ := c.Get("request_id")
+	slog.Info("sop/ask", "question", req.Question, "top_k", req.TopK, "request_id", reqID)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:         req.Question,
@@ -641,12 +660,15 @@ func (h *Handler) SopAsk(c *gin.Context) {
 		Mode:             req.Mode,
 	})
 	if err != nil {
-		log.Printf("[sop/ask] error: %v", err)
+		slog.Error("sop/ask failed", "error", err, "request_id", reqID)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[sop/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	slog.Info("sop/ask done",
+		"answer_len", len(resp.Answer), "sources", resp.RetrievalCount,
+		"top_score", resp.TopScore, "request_id", reqID,
+	)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -669,7 +691,7 @@ func (h *Handler) SopIngest(c *gin.Context) {
 	_ = c.ShouldBindJSON(&req)
 
 	const sopPath = "data/docs/sop"
-	log.Printf("[sop/ingest] path=%s overwrite=%v", sopPath, req.Overwrite)
+	slog.Info("sop/ingest", "path", sopPath, "overwrite", req.Overwrite)
 
 	result, err := ingest.Run(h.cfg, sopPath, req.Overwrite, 0, 0, 0)
 	if err != nil {
@@ -711,8 +733,10 @@ func (h *Handler) StudentAsk(c *gin.Context) {
 		req.TopK = h.cfg.TopKDefault
 	}
 
-	log.Printf("[banner/student/ask] Q: %q | top_k=%d | version=%s | module=%s",
-		req.Question, req.TopK, req.VersionFilter, req.ModuleFilter)
+	slog.Info("banner/student/ask",
+		"question", req.Question, "top_k", req.TopK,
+		"version", req.VersionFilter, "module", req.ModuleFilter,
+	)
 
 	resp, err := h.pipeline.Ask(rag.AskRequest{
 		Question:         req.Question,
@@ -724,12 +748,12 @@ func (h *Handler) StudentAsk(c *gin.Context) {
 		Mode:             req.Mode,
 	})
 	if err != nil {
-		log.Printf("[banner/student/ask] error: %v", err)
+		slog.Error("banner/student/ask failed", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	log.Printf("[banner/student/ask] A: %d chars | %d sources", len(resp.Answer), resp.RetrievalCount)
+	slog.Info("banner/student/ask done", "answer_len", len(resp.Answer), "sources", resp.RetrievalCount)
 	c.JSON(http.StatusOK, resp)
 }
 
@@ -753,8 +777,10 @@ func (h *Handler) StudentIngest(c *gin.Context) {
 		req.PagesPerBatch = 10
 	}
 
-	log.Printf("[banner/student/ingest] path=%s overwrite=%v pages_per_batch=%d start=%d end=%d",
-		req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
+	slog.Info("banner/student/ingest",
+		"path", req.DocsPath, "overwrite", req.Overwrite,
+		"pages_per_batch", req.PagesPerBatch, "start", req.StartPage, "end", req.EndPage,
+	)
 
 	result, err := ingest.Run(h.cfg, req.DocsPath, req.Overwrite, req.PagesPerBatch, req.StartPage, req.EndPage)
 	if err != nil {

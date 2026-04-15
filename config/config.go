@@ -47,6 +47,7 @@ type Config struct {
 	APIPort  string
 	GRPCPort string
 	LogLevel string
+	APIKey   string // optional; when set, all non-health endpoints require Authorization: Bearer <key>
 }
 
 func Load() *Config {
@@ -90,6 +91,7 @@ func Load() *Config {
 		APIPort:  getEnv("API_PORT", "8000"),
 		GRPCPort: getEnv("GRPC_PORT", "9000"),
 		LogLevel: getEnv("LOG_LEVEL", "info"),
+		APIKey:   getEnv("API_KEY", ""),
 	}
 }
 

@@ -90,7 +90,8 @@ type AskResponse struct {
 	Sources        []SourceChunk    `json:"sources"`               // local RAG sources; empty for web-only mode
 	WebSources     []WebChunk       `json:"web_sources,omitempty"` // web sources; omitted for local mode
 	RetrievalCount int              `json:"retrieval_count"`
-	Routing        *RoutingDecision `json:"routing,omitempty"` // non-nil only for mode=auto
+	TopScore       float64          `json:"top_score,omitempty"` // highest retrieval score; used by n8n conditions and LangGraph routing
+	Routing        *RoutingDecision `json:"routing,omitempty"`   // non-nil only for mode=auto
 }
 
 // ─── System Prompts ───────────────────────────────────────────────────────────
@@ -309,6 +310,7 @@ func (p *Pipeline) finishLocalAnswer(req AskRequest, sysPrompt string, results [
 		Answer:         answer,
 		Sources:        sources,
 		RetrievalCount: len(sources),
+		TopScore:       topResultScore(results),
 	}, nil
 }
 
@@ -357,6 +359,7 @@ func (p *Pipeline) finishHybridAnswer(req AskRequest, local []azure.SearchResult
 		Sources:        sources,
 		WebSources:     webChunks,
 		RetrievalCount: len(sources) + len(webChunks),
+		TopScore:       topResultScore(local),
 	}, nil
 }
 
@@ -420,6 +423,7 @@ func (p *Pipeline) askWithPrompt(req AskRequest, sysPrompt string) (*AskResponse
 		Answer:         answer,
 		Sources:        sources,
 		RetrievalCount: len(sources),
+		TopScore:       topResultScore(results),
 	}, nil
 }
 
@@ -541,7 +545,17 @@ func (p *Pipeline) askHybrid(req AskRequest, mod ModuleDef) (*AskResponse, error
 		Sources:        sources,
 		WebSources:     webChunks,
 		RetrievalCount: len(sources) + len(webChunks),
+		TopScore:       topResultScore(local.results),
 	}, nil
+}
+
+// topResultScore returns the highest search score from a result set, or 0 if empty.
+// Used to populate AskResponse.TopScore for n8n conditional nodes and LangGraph routing.
+func topResultScore(results []azure.SearchResult) float64 {
+	if len(results) == 0 {
+		return 0
+	}
+	return results[0].Score
 }
 
 // ─── Prompt builders ──────────────────────────────────────────────────────────
