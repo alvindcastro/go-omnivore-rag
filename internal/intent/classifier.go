@@ -56,6 +56,7 @@ func DefaultIntentConfig() IntentConfig {
 			"banner form", "banner screen", "banner menu",
 			"user guide", "where do i", "look up a",
 			"what is the banner", "how do i find",
+			"what is banner", "in banner",
 		},
 	}
 }

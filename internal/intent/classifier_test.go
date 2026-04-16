@@ -75,6 +75,9 @@ func TestClassifier_BannerUsage(t *testing.T) {
 		{"How to use the Banner Finance module", BannerUsage},
 		{"How to restart the Banner server", SopQuery},
 		{"What changed in Banner Finance?", BannerRelease},
+		{"What is Banner Access Management?", BannerUsage},
+		{"What is SOAIDEN in Banner?", BannerUsage},
+		{"What is the FGAJVCD form in Banner?", BannerUsage},
 	}
 	for _, tc := range cases {
 		result := c.Classify(tc.input)

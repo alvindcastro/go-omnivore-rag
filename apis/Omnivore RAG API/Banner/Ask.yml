@@ -1,5 +1,5 @@
 info:
-  name: Ask
+  name: Ask (Release Notes)
   type: http
   seq: 1
 
@@ -12,9 +12,7 @@ http:
       {
         "question": "What changed in Banner General 9.3.37.2?",
         "top_k": 5,
-        "version_filter": "9.3.37.2",
         "module_filter": "General",
-        "year_filter": "2026",
         "mode": "local"
       }
   auth: inherit
