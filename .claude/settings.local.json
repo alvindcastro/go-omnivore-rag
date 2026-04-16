@@ -24,7 +24,8 @@
       "Bash(grep -n \"^//\" \"C:\\\\Users\\\\decastroa\\\\GolandProjects\\\\go-omnivore-rag\\\\internal\\\\ingest\\\\student_chunker.go\")",
       "Bash(GIN_MODE=test go test ./internal/api/...)",
       "Bash(xargs grep:*)",
-      "Bash(find C:UsersdecastroaGolandProjectsgo-omnivore-rag -not -path */.git/* -type f -o -not -path */.git/* -type d)"
+      "Bash(find C:UsersdecastroaGolandProjectsgo-omnivore-rag -not -path */.git/* -type f -o -not -path */.git/* -type d)",
+      "Bash(go mod:*)"
     ]
   }
 }
