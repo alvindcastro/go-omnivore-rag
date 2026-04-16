@@ -2,7 +2,7 @@
 
 > **IDE:** GoLand (primary) — Go RAG backend + test suites  
 > **Strict TDD:** Red → Green → Refactor on every coded component  
-> **Goal:** Portfolio-grade, deployed chatbot demo for the Okanagan College AI/Automation Developer application  
+> **Goal:** Portfolio-grade, deployed chatbot demo for the AI/Automation Developer application  
 > **Backend:** `go-omnivore-rag` — existing, live, no changes needed to core RAG
 
 ---
@@ -894,7 +894,7 @@ RAG_ADAPTER_URL=https://ask-banner.fly.dev   # or ngrok URL for local dev
 ## Phase 6 — Demo Page
 
 ### `demo/index.html`
-- Mock Okanagan College header — brand colours `#003366` / `#0066CC`
+- Mock college header — brand colours `#003366` / `#0066CC`
 - Page title: "Student Self-Service"
 - Fake nav links: Registration | Fees | Transcripts | Contact
 - Visible callout: "Ask our virtual assistant 24/7 — powered by Banner documentation"
