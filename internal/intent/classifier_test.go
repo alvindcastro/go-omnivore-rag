@@ -12,12 +12,14 @@ func TestClassifier_KnownIntents(t *testing.T) {
 		input    string
 		expected Intent
 	}{
-		{"When is the add/drop deadline?", RegistrationBanner},
-		{"How do I register for next semester?", RegistrationBanner},
-		{"When are my tuition fees due?", FinanceBanner},
-		{"How do I request an official transcript?", TranscriptSop},
-		{"There is a financial hold on my account", HoldsSop},
-		{"What changed in Banner General 9.3.37?", ReleaseSummary},
+		{"What changed in Banner version 9.3.37?", BannerRelease},
+		{"Show me the release notes for this upgrade", BannerRelease},
+		{"What are the breaking changes in 9.4?", BannerRelease},
+		{"What is the General Ledger structure in Banner?", BannerFinance},
+		{"What is the budget balance for the grants fund?", BannerFinance},
+		{"What are the steps to approve a Banner requisition?", SopQuery},
+		{"How do I process a transcript request?", SopQuery},
+		{"What Banner module parameters control FGAC access?", BannerAdmin},
 		{"What is the weather today?", General},
 		{"help", General},
 	}
@@ -29,7 +31,7 @@ func TestClassifier_KnownIntents(t *testing.T) {
 
 func TestClassifier_ConfidenceRange(t *testing.T) {
 	c := NewClassifier(DefaultIntentConfig())
-	for _, msg := range []string{"register for COMP 1234", "pay my fees", "transcript request"} {
+	for _, msg := range []string{"show me release notes", "what is the budget balance", "how do I run a report"} {
 		r := c.Classify(msg)
 		assert.GreaterOrEqual(t, r.Confidence, 0.0)
 		assert.LessOrEqual(t, r.Confidence, 1.0)
@@ -45,19 +47,19 @@ func TestClassifier_AmbiguousDefaultsToGeneral(t *testing.T) {
 
 func TestClassifier_CustomConfig(t *testing.T) {
 	cfg := IntentConfig{
-		RegistrationBanner: []string{"enroll"},
+		SopQuery: []string{"procedure"},
 	}
 	c := NewClassifier(cfg)
-	assert.Equal(t, RegistrationBanner, c.Classify("how do I enroll?").Intent)
+	assert.Equal(t, SopQuery, c.Classify("what is the procedure for this?").Intent)
 }
 
-func TestClassifier_ReleaseSummaryDetectsVersion(t *testing.T) {
+func TestClassifier_BannerReleaseDetectsVersion(t *testing.T) {
 	c := NewClassifier(DefaultIntentConfig())
 	for _, msg := range []string{
 		"What changed in 9.3.37?",
 		"show me the breaking changes for Banner",
-		"release notes for Student 9.4",
+		"release notes for 9.4",
 	} {
-		assert.Equal(t, ReleaseSummary, c.Classify(msg).Intent, "input: %q", msg)
+		assert.Equal(t, BannerRelease, c.Classify(msg).Intent, "input: %q", msg)
 	}
 }

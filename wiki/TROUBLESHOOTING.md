@@ -391,14 +391,14 @@ curl -s -X POST http://localhost:8000/banner/ingest \
    curl -s http://localhost:8000/index/stats | jq .document_count
    ```
 
-2. **Azure Search scores are hybrid RRF scores**, which are typically in the range `0.005–0.05`, NOT `0–1`. If your indexed documents return these low raw scores, confidence will always be `< 0.5`.
+2. **Azure Search scores are hybrid RRF scores**, which are typically in the range `0.01–0.05`, NOT `0–1`. The escalation threshold in `internal/adapter/client.go` must match this range.
 
-   > **Nice to know:** The adapter sets `confidence = sources[0].score` directly. Azure AI Search hybrid (BM25 + vector) returns RRF-normalized scores, usually `0.01–0.06`. If your search index uses semantic reranking, scores can reach `0.5–1.0`. Without semantic reranking enabled, `escalate` will almost always be `true`.
+   > **Current state:** The adapter uses `escalate = retrieval_count == 0 || confidence < [floor]` where the floor is calibrated to the actual score distribution (see `wiki/RUNBOOK.md § Azure AI Search Score Distribution`). A score of `0.033` with sources present is a **good answer** — do not treat it as low confidence.
 
-   **Fix options:**
-   - Enable semantic reranking in Azure AI Search (requires Standard tier).
-   - Or lower the escalation threshold in `internal/adapter/client.go` from `0.5` to `0.03` to match RRF score range.
-   - Or normalize scores in `mapResponse()` before comparing.
+   **If escalate is firing on valid answers:**
+   - Check `confidence` in the `/chat/ask` response — if it's `0.01–0.05` with sources, the threshold floor is too high.
+   - Run Agent 9 (Confidence Calibration) from `wiki/CLAUDE_AGENTS.md` to get a data-driven floor recommendation.
+   - See `PLAN.md Phase B` for the TDD fix task.
 
 3. **Wrong index** — queries are hitting an empty or different index.
    ```bash

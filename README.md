@@ -95,6 +95,8 @@ Container: banner-release-notes (Private)
 
 ## Setup
 
+> **Quick start:** See [wiki/RUNBOOK.md](wiki/RUNBOOK.md) for a step-by-step guide covering all three run paths (Docker Compose, local Go + Fly.io, and fully local).
+
 ### 1. Clone and install
 
 ```bash
@@ -686,6 +688,7 @@ Potential improvements roughly ordered by value:
 
 | Guide | What it covers |
 |---|---|
+| [RUNBOOK.md](wiki/RUNBOOK.md) | **Start here** — end-to-end step-by-step for all three run paths |
 | [LOCAL-DEV.md](wiki/LOCAL-DEV.md) | First-time setup, dev session startup, running tests, common commands |
 | [DOCKER-DEV.md](wiki/DOCKER-DEV.md) | Full Docker Compose stack (backend + adapter + ngrok), one-command startup |
 | [BOTPRESS-SETUP.md](wiki/BOTPRESS-SETUP.md) | Botpress Cloud wiring, all Execute Code snippets, widget config |

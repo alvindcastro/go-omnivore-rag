@@ -32,20 +32,20 @@ func (m *mockAdapterClient) AskSop(ctx context.Context, question string) (Adapte
 	return AdapterResponse{}, nil
 }
 
-func TestChatAskHandler_ValidBannerIntent(t *testing.T) {
+func TestChatAskHandler_BannerAdminIntent_UsesGeneralFilter(t *testing.T) {
 	mockClient := &mockAdapterClient{
 		askBannerFn: func(ctx context.Context, q string, opts AskOptions) (AdapterResponse, error) {
-			assert.Equal(t, "Student", opts.ModuleFilter)
+			assert.Equal(t, "General", opts.ModuleFilter)
 			return AdapterResponse{
-				Answer:     "Registration opens March 1st.",
+				Answer:     "Configure FGAC via Banner Security.",
 				Confidence: 0.83,
-				Sources:    []AdapterSource{{Title: "Banner Student 9.3.37", Page: 5}},
+				Sources:    []AdapterSource{{Title: "Banner Admin 9.3.37", Page: 5}},
 				Escalate:   false,
 			}, nil
 		},
 	}
 
-	body := `{"message":"When does registration open?","session_id":"s1","intent":"RegistrationBanner"}`
+	body := `{"message":"How do I configure FGAC?","session_id":"s1","intent":"BannerAdmin"}`
 	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -66,7 +66,7 @@ func TestChatAskHandler_SopIntent_CallsAskSop(t *testing.T) {
 		},
 	}
 
-	body := `{"message":"How do I request a transcript?","session_id":"s2","intent":"TranscriptSop"}`
+	body := `{"message":"What are the steps to approve a requisition?","session_id":"s2","intent":"SopQuery"}`
 	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -94,7 +94,7 @@ func TestChatAskHandler_BackendError_Returns500_WithSafeMessage(t *testing.T) {
 		},
 	}
 
-	body := `{"message":"When does registration open?","session_id":"s4","intent":"RegistrationBanner"}`
+	body := `{"message":"What changed in 9.3.37?","session_id":"s4","intent":"BannerRelease"}`
 	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -104,7 +104,6 @@ func TestChatAskHandler_BackendError_Returns500_WithSafeMessage(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	var errBody map[string]string
 	json.Unmarshal(w.Body.Bytes(), &errBody)
-	// Must not leak upstream error details
 	assert.Equal(t, "internal server error", errBody["error"])
 	assert.NotContains(t, w.Body.String(), "connection refused")
 }
@@ -149,8 +148,8 @@ func TestSentimentHandler_MissingMessage_Returns400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestIntentHandler_RegistrationBanner(t *testing.T) {
-	body := `{"message":"When is the add/drop deadline?"}`
+func TestIntentHandler_BannerRelease(t *testing.T) {
+	body := `{"message":"What changed in Banner version 9.3.37?"}`
 	req := httptest.NewRequest(http.MethodPost, "/chat/intent", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -160,7 +159,7 @@ func TestIntentHandler_RegistrationBanner(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp map[string]interface{}
 	json.Unmarshal(w.Body.Bytes(), &resp)
-	assert.Equal(t, "RegistrationBanner", resp["intent"])
+	assert.Equal(t, "BannerRelease", resp["intent"])
 	assert.Greater(t, resp["confidence"].(float64), 0.0)
 }
 
@@ -187,4 +186,124 @@ func TestIntentHandler_MissingMessage_Returns400(t *testing.T) {
 	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestChatAskHandler_GeneralIntent_UsesGeneralModuleFilter(t *testing.T) {
+	mockClient := &mockAdapterClient{
+		askBannerFn: func(_ context.Context, _ string, opts AskOptions) (AdapterResponse, error) {
+			assert.Equal(t, "General", opts.ModuleFilter)
+			return AdapterResponse{Answer: "Banner General info.", Confidence: 0.72}, nil
+		},
+	}
+
+	body := `{"message":"What changed in Banner General 9.3.37?","session_id":"s5","intent":"General"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestChatAskHandler_BannerReleaseIntent_UsesGeneralModuleFilter(t *testing.T) {
+	mockClient := &mockAdapterClient{
+		askBannerFn: func(_ context.Context, _ string, opts AskOptions) (AdapterResponse, error) {
+			assert.Equal(t, "General", opts.ModuleFilter)
+			return AdapterResponse{Answer: "Release summary.", Confidence: 0.65}, nil
+		},
+	}
+
+	body := `{"message":"Show breaking changes in 9.3.37","session_id":"s6","intent":"BannerRelease"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestChatAskHandler_SourceFieldOverridesIntent(t *testing.T) {
+	mockClient := &mockAdapterClient{
+		askBannerFn: func(_ context.Context, _ string, opts AskOptions) (AdapterResponse, error) {
+			assert.Equal(t, "Finance", opts.ModuleFilter)
+			return AdapterResponse{Answer: "Finance answer.", Confidence: 0.80}, nil
+		},
+	}
+
+	body := `{"message":"How do I close a fiscal year?","session_id":"s7","intent":"General","source":"finance"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestChatAskHandler_SourceSop_CallsAskSop(t *testing.T) {
+	called := false
+	mockClient := &mockAdapterClient{
+		askSopFn: func(_ context.Context, _ string) (AdapterResponse, error) {
+			called = true
+			return AdapterResponse{Answer: "SOP answer.", Confidence: 0.88}, nil
+		},
+	}
+
+	body := `{"message":"How do I restart Axiom?","session_id":"s8","intent":"General","source":"sop"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, called, "expected AskSop to be called")
+}
+
+func TestChatAskHandler_InvalidSource_Student_Returns400(t *testing.T) {
+	body := `{"message":"Register me for COMP101","session_id":"s9","intent":"General","source":"student"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var errBody map[string]string
+	json.Unmarshal(w.Body.Bytes(), &errBody)
+	assert.Equal(t, "invalid source", errBody["error"])
+}
+
+func TestChatAskHandler_InvalidSource_General_Returns400(t *testing.T) {
+	body := `{"message":"Tell me something","session_id":"s10","intent":"General","source":"general"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var errBody map[string]string
+	json.Unmarshal(w.Body.Bytes(), &errBody)
+	assert.Equal(t, "invalid source", errBody["error"])
+}
+
+func TestChatAskHandler_SourceBanner_UsesGeneralFilter(t *testing.T) {
+	mockClient := &mockAdapterClient{
+		askBannerFn: func(_ context.Context, _ string, opts AskOptions) (AdapterResponse, error) {
+			assert.Equal(t, "General", opts.ModuleFilter)
+			return AdapterResponse{Answer: "Banner answer.", Confidence: 0.75}, nil
+		},
+	}
+
+	body := `{"message":"What is the Banner FOAPAL structure?","session_id":"s11","intent":"General","source":"banner"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }

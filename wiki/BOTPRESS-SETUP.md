@@ -120,7 +120,7 @@ try {
     { message: event.preview },
     { timeout: 10000 }
   );
-  workflow.intent = r.data.intent;             // e.g. "RegistrationBanner"
+  workflow.intent = r.data.intent;             // e.g. "BannerRelease"
   workflow.intentConfidence = r.data.confidence;
 } catch (err) {
   workflow.intent = 'General';
@@ -129,18 +129,17 @@ try {
 }
 ```
 
-**Possible intent values:**
+**Possible intent values (internal users):**
 
 | Value | Routes to | Example questions |
 |---|---|---|
-| `RegistrationBanner` | `/banner/ask` with `module_filter=Student` | "add/drop deadline", "how to register" |
-| `FinanceBanner` | `/banner/ask` with `module_filter=Finance` | "tuition fees", "how to pay" |
-| `TranscriptSop` | `/sop/ask` | "request a transcript" |
-| `HoldsSop` | `/sop/ask` | "hold on my account", "clear a hold" |
-| `ReleaseSummary` | `/banner/ask` (general) | "what changed in 9.3.37", "release notes" |
-| `General` | `/banner/ask` (no filter) | everything else |
+| `BannerRelease` | `/banner/ask` `module_filter=General` | "what changed in 9.3.37", "breaking changes", "upgrade notes" |
+| `BannerFinance` | `/banner/ask` `module_filter=Finance` | "GL posting rules", "AR configuration", "budget setup" |
+| `SopQuery` | `/sop/ask` | "steps for smoke test", "procedure for job submission" |
+| `BannerAdmin` | `/banner/ask` `module_filter=General` | "how to configure Banner admin pages", "module setup" |
+| `General` | `/banner/ask` `module_filter=General` | everything else |
 
-> **Note:** The `ReleaseSummary` intent currently routes to `/banner/ask` in the adapter. If you want the full `/banner/summarize/full` response (with `breaking_changes`, `action_items`, etc.), you need a separate Execute Code node for that path — see [Stretch: Release Summary node](#stretch-release-summary-node) below.
+> **Note:** The `BannerRelease` intent routes to `/banner/ask` in the adapter. For a full structured summary (breaking changes, action items), add a separate Execute Code node calling `/banner/summarize/full` — see [Stretch: Release Summary node](#stretch-release-summary-node) below.
 
 ---
 
@@ -242,17 +241,17 @@ After saving flow changes, always hit **Publish** (top-right button in Botpress 
 
 ## Stretch: Release Summary node
 
-The `ReleaseSummary` intent could trigger a richer response using `/banner/summarize/full`. This requires knowing the Banner module and version, so you need a slot-filling step first.
+The `BannerRelease` intent could trigger a richer response using `/banner/summarize/full`. This requires knowing the Banner module and version, so you need a slot-filling step first.
 
 ```javascript
-// Only run this when workflow.intent === 'ReleaseSummary'
+// Only run this when workflow.intent === 'BannerRelease'
 // Assumes workflow.bannerVersion was collected by a prior slot-fill step
 
 const axios = require('axios');
 const RAG_BACKEND = process.env.RAG_ADAPTER_URL; // Note: this calls adapter's /chat/ask
 // Or if you add a /chat/summarize endpoint to the adapter, call that instead
 
-// For now, the adapter routes ReleaseSummary → /banner/ask (general)
+// For now, the adapter routes BannerRelease → /banner/ask (general)
 // A dedicated summarize flow would need:
 //   POST {adapter}/chat/summarize
 //   body: { filename, banner_module, banner_version }

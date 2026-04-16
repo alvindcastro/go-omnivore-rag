@@ -27,6 +27,7 @@ type chatAskRequest struct {
 	Message   string `json:"message"`
 	SessionID string `json:"session_id"`
 	Intent    string `json:"intent"`
+	Source    string `json:"source"` // optional: "banner"|"finance"|"sop"|"auto"
 }
 
 // chatAskResponse is the JSON body returned by POST /chat/ask.
@@ -74,19 +75,26 @@ func askHandler(client AdapterClient) http.HandlerFunc {
 			return
 		}
 
+		// Resolve effective source: explicit field wins; otherwise derive from intent.
+		source := req.Source
+		if source == "" || source == "auto" {
+			source = sourceFromIntent(req.Intent)
+		}
+
 		var (
 			resp AdapterResponse
 			err  error
 		)
-		switch req.Intent {
-		case "RegistrationBanner":
-			resp, err = client.AskBanner(r.Context(), req.Message, AskOptions{ModuleFilter: "Student"})
-		case "FinanceBanner":
+		switch source {
+		case "banner":
+			resp, err = client.AskBanner(r.Context(), req.Message, AskOptions{ModuleFilter: "General"})
+		case "finance":
 			resp, err = client.AskBanner(r.Context(), req.Message, AskOptions{ModuleFilter: "Finance"})
-		case "TranscriptSop", "HoldsSop":
+		case "sop":
 			resp, err = client.AskSop(r.Context(), req.Message)
 		default:
-			resp, err = client.AskBanner(r.Context(), req.Message, AskOptions{})
+			writeJSONError(w, http.StatusBadRequest, "invalid source")
+			return
 		}
 
 		if err != nil {
@@ -162,6 +170,20 @@ func intentHandler(classifier *intent.Classifier) http.HandlerFunc {
 			"intent":     string(result.Intent),
 			"confidence": result.Confidence,
 		})
+	}
+}
+
+// sourceFromIntent maps an intent name to a routing source string.
+// Returns "banner" for unknown or catch-all intents so every query always
+// carries a module context — prevents 0-result searches against the backend.
+func sourceFromIntent(i string) string {
+	switch i {
+	case "BannerFinance":
+		return "finance"
+	case "SopQuery":
+		return "sop"
+	default: // BannerRelease, BannerAdmin, General, unknown
+		return "banner"
 	}
 }
 

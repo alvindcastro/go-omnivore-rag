@@ -125,8 +125,8 @@ RAG_BACKEND_URL=http://localhost:8000 PORT=8080 go run cmd/server/main.go
 # Test an intent classify
 curl -s -X POST http://localhost:8080/chat/intent \
   -H "Content-Type: application/json" \
-  -d '{"message":"When is the add/drop deadline?"}' | jq .
-# Expected: {"intent":"RegistrationBanner","confidence":0.5}
+  -d '{"message":"What changed in Banner 9.3.37?"}' | jq .
+# Expected: {"intent":"BannerRelease","confidence":0.9}
 
 # Test sentiment
 curl -s -X POST http://localhost:8080/chat/sentiment \
@@ -137,7 +137,7 @@ curl -s -X POST http://localhost:8080/chat/sentiment \
 # Test full ask
 curl -s -X POST http://localhost:8080/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"message":"What changed in Banner 9.3.37?","session_id":"test-1","intent":"ReleaseSummary"}' | jq .
+  -d '{"message":"What changed in Banner 9.3.37?","session_id":"test-1","intent":"BannerRelease"}' | jq .
 ```
 
 When running the adapter locally, temporarily point Botpress at your ngrok URL for the adapter too (or skip Botpress and test with curl).

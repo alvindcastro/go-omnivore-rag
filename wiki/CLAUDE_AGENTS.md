@@ -15,9 +15,11 @@ Each agent wraps the existing HTTP API as tools — no changes to the Go backend
 6. [Agent 5: Document Ingestion Orchestrator Agent](#agent-5-document-ingestion-orchestrator-agent)
 7. [Agent 6: SOP Gap Analyzer Agent](#agent-6-sop-gap-analyzer-agent)
 8. [Agent 7: Index Health & Diagnostics Agent](#agent-7-index-health--diagnostics-agent)
-9. [Tool Reference: API-to-Tool Mapping](#tool-reference-api-to-tool-mapping)
-10. [Implementation Notes](#implementation-notes)
-11. [Priority Recommendation](#priority-recommendation)
+9. [Agent 8: Internal Banner Chatbot Agent](#agent-8-internal-banner-chatbot-agent)
+10. [Agent 9: Confidence Calibration Agent](#agent-9-confidence-calibration-agent)
+11. [Tool Reference: API-to-Tool Mapping](#tool-reference-api-to-tool-mapping)
+12. [Implementation Notes](#implementation-notes)
+13. [Priority Recommendation](#priority-recommendation)
 
 ---
 
@@ -125,7 +127,8 @@ Rules:
 - If the user mentions a module (Finance, Student, HR, General, Accounts Receivable, etc.), set module_filter.
 - If the user mentions a version number, set version_filter.
 - After tool call: quote the top_score from the response as your confidence level.
-- If top_score < 0.5 or retrieval_count == 0, say "No relevant documents found" and suggest checking the index.
+- If retrieval_count == 0, say "No relevant documents found" and suggest checking the index.
+- Note: Azure AI Search scores for this index are typically 0.01–0.05 — a score of 0.033 is a valid answer, not low confidence.
 - Format sources as: [Document Title, page N, module, version]
 - Keep answers concise. Lead with the direct answer, then list sources."""
 ```
@@ -233,7 +236,7 @@ Workflow:
 Rules:
 - Present procedures as numbered steps, not prose.
 - Always cite the SOP number and section (e.g. "SOP122, Section 4.1").
-- If confidence is low (top_score < 0.5), warn the user to verify against the source document.
+- If retrieval_count == 0, warn the user no documents were found. Scores of 0.01–0.05 are normal for this index and do NOT indicate low quality.
 - Never invent steps. If steps are missing from the retrieved context, say so."""
 ```
 
@@ -401,7 +404,7 @@ Behavior:
 - When you retrieve information, state the source and confidence
 - Maintain a mental model of what the user is trying to accomplish and proactively surface relevant info
 - If a question spans both Banner and SOP domains, call both tools
-- Escalate explicitly: say "I recommend verifying this with the source document" when confidence < 0.5"""
+- Escalate explicitly: say "I recommend verifying this with the source document" when retrieval_count == 0 (Azure scores of 0.01–0.05 are normal — do not escalate on score alone)"""
 ```
 
 ### Implementation
@@ -696,18 +699,401 @@ For each finding, provide:
 
 ---
 
+## Agent 8: Internal Banner Chatbot Agent
+
+**Purpose:** Internal-user chatbot for IT staff, functional analysts, and Banner admins.
+Wraps the `/chat/*` adapter endpoints. Answers questions about Banner ERP modules,
+release notes, upgrade changes, and operational SOPs. Escalates when confidence is low.
+
+**Use case:** Deployed as a Botpress webhook target — internal users ask in natural language
+and get grounded answers citing release notes or SOP documents directly.
+
+**Type:** Multi-tool agent with escalation logic. Uses the simplified three-source routing
+(`banner`, `finance`, `sop`).
+
+### Tools
+
+```python
+INTERNAL_CHATBOT_TOOLS = [
+    {
+        "name": "chat_intent",
+        "description": (
+            "Classify the user's message into one of: BannerRelease, BannerFinance, "
+            "SopQuery, BannerAdmin, General. "
+            "Returns intent name and confidence score (0–1). "
+            "Use this first to decide which source to query."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "The user's question"},
+            },
+            "required": ["message"],
+        },
+    },
+    {
+        "name": "chat_sentiment",
+        "description": (
+            "Detect the emotional tone of the user's message. "
+            "Returns sentiment (Positive, Neutral, Frustrated) and a score (0–1). "
+            "Use this to decide whether to escalate regardless of answer confidence."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string"},
+            },
+            "required": ["message"],
+        },
+    },
+    {
+        "name": "chat_ask",
+        "description": (
+            "Answer the user's question using the Ask Banner knowledge base. "
+            "Set source based on the intent: "
+            "'finance' for BannerFinance, 'sop' for SopQuery, "
+            "'banner' for everything else (BannerRelease, BannerAdmin, General). "
+            "Returns answer, confidence (0–1), sources[], and escalate flag."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "The user's question verbatim"},
+                "session_id": {"type": "string", "description": "Unique session identifier"},
+                "source": {
+                    "type": "string",
+                    "enum": ["banner", "finance", "sop"],
+                    "description": "Routing source derived from intent",
+                },
+            },
+            "required": ["message", "session_id", "source"],
+        },
+    },
+]
+```
+
+### System Prompt
+
+```python
+INTERNAL_CHATBOT_SYSTEM = """You are Ask Banner, an internal knowledge assistant for
+IT staff, functional analysts, and Banner administrators. You answer questions about
+Ellucian Banner ERP — release notes, module changes, upgrade procedures, and SOPs.
+
+Workflow for every user message:
+1. Call chat_intent to classify the message and get a confidence score.
+2. Call chat_sentiment to detect frustration.
+3. Map intent to source:
+   - BannerFinance → source=finance
+   - SopQuery      → source=sop
+   - BannerRelease, BannerAdmin, General → source=banner
+4. Call chat_ask with the message, session_id, and source.
+5. If resp.escalate == true OR sentiment == Frustrated:
+   Reply: "I wasn't able to find a confident answer. Please check the source documents
+   directly or escalate to the Banner team lead."
+   Do not attempt to answer further.
+6. Otherwise: deliver the answer concisely. Always cite the document title, page, and
+   version if available. Technical accuracy matters more than brevity.
+
+Rules:
+- Never answer from prior training knowledge alone — always call chat_ask first.
+- If the question is unrelated to Banner or SOPs, reply: "I can only help with Banner
+  ERP questions and SOP procedures."
+- Do not expose source URLs, API calls, or internal routing details.
+"""
+```
+
+### Implementation
+
+```python
+import os
+import anthropic
+
+ADAPTER_BASE_URL = os.environ["ADAPTER_BASE_URL"]  # e.g. http://localhost:8080
+
+ADAPTER_HEADERS = {"Content-Type": "application/json"}
+
+client = anthropic.Anthropic()
+
+def run_adapter_tool(tool_name: str, tool_input: dict) -> str:
+    dispatch = {
+        "chat_intent":    lambda i: requests.post(f"{ADAPTER_BASE_URL}/chat/intent", json=i, headers=ADAPTER_HEADERS).json(),
+        "chat_sentiment": lambda i: requests.post(f"{ADAPTER_BASE_URL}/chat/sentiment", json=i, headers=ADAPTER_HEADERS).json(),
+        "chat_ask":       lambda i: requests.post(f"{ADAPTER_BASE_URL}/chat/ask", json=i, headers=ADAPTER_HEADERS).json(),
+    }
+    return json.dumps(dispatch[tool_name](tool_input))
+
+def internal_chatbot_agent(message: str, session_id: str) -> str:
+    messages = [{"role": "user", "content": message}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            system=INTERNAL_CHATBOT_SYSTEM,
+            tools=INTERNAL_CHATBOT_TOOLS,
+            messages=messages,
+        )
+
+        if response.stop_reason == "end_turn":
+            return next(b.text for b in response.content if b.type == "text")
+
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                inp = dict(block.input)
+                if block.name == "chat_ask":
+                    inp["session_id"] = session_id
+                result = run_adapter_tool(block.name, inp)
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result,
+                })
+
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": tool_results})
+```
+
+### Example Session
+
+```
+User: What database changes are required for Banner General 9.3.37?
+
+Agent: [calls chat_intent("What database changes are required for Banner General 9.3.37?")]
+       → {intent: "BannerRelease", confidence: 0.90}
+       [calls chat_sentiment("...")]
+       → {sentiment: "Neutral", score: 0.05}
+       [calls chat_ask(message="...", session_id="abc", source="banner")]
+       → {answer: "Banner General 9.3.37 requires running GENUPGRADE.sql before...",
+          confidence: 0.82, escalate: false}
+
+Answer: Banner General 9.3.37 requires the following database changes before restarting:
+1. Run GENUPGRADE.sql (DBA checklist, page 4)
+2. Update three indexes on the GZRSTAT table
+Confidence: 0.82 — Source: Banner General Release Notes 9.3.37, page 4
+```
+
+```
+User: Is there an SOP for the post-upgrade smoke test?
+
+Agent: [calls chat_intent → {intent: "SopQuery", confidence: 0.85}]
+       [calls chat_ask(source="sop")]
+       → {answer: "SOP122 covers the post-upgrade smoke test...", confidence: 0.81}
+
+Answer: Yes — SOP122 (Smoke Test and Sanity Test Post Banner Upgrade) covers this.
+Section 3 has the full checklist. (Source: SOP122, Section 3, confidence: 0.81)
+```
+
+### Escalation Example
+
+```
+User: THE INDEX IS BROKEN NOTHING RETURNS RESULTS THIS IS USELESS
+
+Agent: [calls chat_sentiment → {sentiment: "Frustrated", score: 0.94}]
+       [skips answering due to frustration]
+
+Answer: I wasn't able to find a confident answer. Please check the source documents
+directly or escalate to the Banner team lead.
+```
+
+---
+
+## Agent 9: Confidence Calibration Agent
+
+**Purpose:** Determine the correct escalate score floor for `internal/adapter/client.go` by
+running a structured calibration protocol against the live backend. Re-run whenever the index
+grows significantly (new Banner versions ingested) since score distributions shift with corpus size.
+
+**Use case:** After a new ingestion, or whenever the escalate behavior seems wrong, run this agent
+to get a data-driven threshold recommendation instead of guessing.
+
+**Type:** Diagnostic protocol agent. Sequential tool calls with structured output.
+
+### Tools
+
+Reuses Agent 7's tools: `banner_ask` and `index_stats`.
+
+```python
+CALIBRATION_TOOLS = [
+    {
+        "name": "index_stats",
+        "description": "Get current index chunk count and metadata.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "banner_ask",
+        "description": "Run a test query and return sources with scores.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string"},
+                "module_filter": {"type": "string"},
+                "top_k": {"type": "integer", "default": 3},
+            },
+            "required": ["question"],
+        },
+    },
+]
+```
+
+### Calibration Query Sets
+
+```python
+# Known-good queries: these SHOULD return useful answers if the index is populated
+KNOWN_GOOD = [
+    {"question": "What changed in Banner General?", "module_filter": "General"},
+    {"question": "What are the Banner General release notes?", "module_filter": "General"},
+    {"question": "What is new in Banner 9.3.37.2?", "module_filter": "General"},
+    {"question": "What support changes were made in Banner 8?", "module_filter": "General"},
+    {"question": "What are the breaking changes in the Banner General release?", "module_filter": "General"},
+]
+
+# Known-boundary queries: these SHOULD have low or zero results
+KNOWN_BOUNDARY = [
+    {"question": "What changed in Banner Finance module?", "module_filter": "Finance"},
+    {"question": "Banner Student 9.4.1 release notes", "module_filter": "Student"},
+    {"question": "Banner HR payroll changes", "module_filter": "HR"},
+    {"question": "What is the weather today?", "module_filter": "General"},
+    {"question": "Who is the CEO of Ellucian?", "module_filter": "General"},
+]
+```
+
+### System Prompt
+
+```python
+CALIBRATION_SYSTEM = """You are a confidence score calibration agent for an Azure AI Search-backed
+RAG system. Your goal is to determine the correct escalate threshold for the adapter layer.
+
+Calibration protocol:
+1. Call index_stats to record the current index state (chunk count, index name).
+2. Run each query in KNOWN_GOOD (passed as context) using banner_ask. Record:
+   - retrieval_count
+   - sources[0].score (or 0 if sources is empty)
+   - Whether the answer text appears useful (not empty, not "no documents found")
+3. Run each query in KNOWN_BOUNDARY. Record the same fields.
+4. Analyze the data:
+   - What is the MINIMUM score among known-good queries with useful answers?
+   - What is the MAXIMUM score among known-boundary queries with useless/empty answers?
+   - Is there a clean gap between those two groups?
+5. Recommend a threshold:
+   - If gap exists: set floor = midpoint of the gap, rounded down to nearest 0.005
+   - If no gap (scores overlap): recommend threshold = 0.0 (use retrieval_count == 0 only)
+   - Never recommend above 0.05 without strong justification
+
+Output a Markdown calibration report:
+## Calibration Report — [date] — [index_name]
+### Index State
+[chunk count, index name]
+### Known-Good Query Results
+| Query | module | retrieval_count | score | useful? |
+### Known-Boundary Query Results
+[same table]
+### Score Distribution Analysis
+[min good score, max boundary score, gap or overlap]
+### Recommendation
+**Threshold:** 0.0XX
+**Rationale:** [1–2 sentences]
+**Next calibration:** [recommend after N more documents ingested or N months]
+"""
+```
+
+### Implementation
+
+```python
+def calibration_agent(module_filter: str = "General") -> str:
+    context = f"""
+Run the calibration protocol for module_filter='{module_filter}'.
+
+KNOWN_GOOD queries:
+{json.dumps(KNOWN_GOOD, indent=2)}
+
+KNOWN_BOUNDARY queries:
+{json.dumps(KNOWN_BOUNDARY, indent=2)}
+
+Produce a full calibration report as described in your instructions.
+"""
+    messages = [{"role": "user", "content": context}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=2048,
+            system=CALIBRATION_SYSTEM,
+            tools=CALIBRATION_TOOLS,
+            messages=messages,
+        )
+
+        if response.stop_reason == "end_turn":
+            return next(b.text for b in response.content if b.type == "text")
+
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                result = run_tool(block.name, dict(block.input))
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result,
+                })
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": tool_results})
+```
+
+### Example Output
+
+```
+## Calibration Report — 2026-04-16 — banner-upgrade-knowledge
+
+### Index State
+- Chunks: 1,247  Index: banner-upgrade-knowledge
+
+### Known-Good Query Results
+| Query | module | retrieval_count | score | useful? |
+|-------|--------|----------------|-------|---------|
+| What changed in Banner General? | General | 3 | 0.033 | yes |
+| Banner General release notes? | General | 5 | 0.029 | yes |
+| What is new in 9.3.37.2? | General | 4 | 0.041 | yes |
+| Support changes in Banner 8? | General | 2 | 0.027 | yes |
+| Breaking changes in Banner General? | General | 3 | 0.035 | yes |
+
+### Known-Boundary Query Results
+| Query | module | retrieval_count | score | useful? |
+|-------|--------|----------------|-------|---------|
+| Banner Finance module? | Finance | 0 | 0.000 | no |
+| Banner Student 9.4.1? | Student | 0 | 0.000 | no |
+| Banner HR payroll? | HR | 0 | 0.000 | no |
+| What is the weather today? | General | 1 | 0.004 | no |
+| Who is the CEO of Ellucian? | General | 1 | 0.006 | no |
+
+### Score Distribution Analysis
+- Min good score: 0.027  Max boundary score: 0.006
+- Clear gap exists: 0.006 → 0.027 (gap of 0.021)
+- Gap midpoint: 0.016
+
+### Recommendation
+**Threshold:** 0.010
+**Rationale:** Clean gap between useful answers (≥ 0.027) and noise (≤ 0.006).
+Threshold of 0.010 sits safely in the middle with margin. Rounds down to nearest 0.005.
+**Next calibration:** After 500+ new chunks ingested, or if escalate behavior seems off.
+```
+
+---
+
 ## Tool Reference: API-to-Tool Mapping
 
 | Tool Name | HTTP Method | Endpoint | Agent(s) Using It |
 |-----------|-------------|----------|--------------------|
-| `banner_ask` | POST | `/banner/ask` | 1, 3, 4, 6, 7 |
+| `banner_ask` | POST | `/banner/ask` | 1, 3, 4, 6, 7, 9 |
 | `sop_ask` | POST | `/sop/ask` | 2, 3, 4, 5, 6 |
 | `sop_list` | GET | `/sop` | 2, 4, 6 |
 | `banner_summarize` | POST | `/banner/summarize/{topic}` | 3, 4, 6 |
 | `banner_ingest` | POST | `/banner/ingest` | 5 |
 | `sop_ingest` | POST | `/sop/ingest` | 5 |
 | `index_health` | GET | `/health` | 5, 7 |
-| `index_stats` | GET | `/index/stats` | 5, 7 |
+| `index_stats` | GET | `/index/stats` | 5, 7, 9 |
+| `chat_ask` | POST | `/chat/ask` | 8 |
+| `chat_intent` | POST | `/chat/intent` | 8 |
+| `chat_sentiment` | POST | `/chat/sentiment` | 8 |
 
 ---
 
@@ -739,8 +1125,9 @@ def check_confidence(api_result: dict) -> str | None:
     """Returns an escalation message if confidence is too low, else None."""
     if api_result.get("retrieval_count", 0) == 0:
         return "No documents found in the index. Check that ingestion has been run."
-    if api_result.get("top_score", 0) < 0.5:
-        return f"Low confidence ({api_result['top_score']:.2f}). Verify answer against source docs."
+    if api_result.get("top_score", 0) < 0.01:
+        return f"Near-zero score ({api_result['top_score']:.3f}). Verify answer against source docs."
+    # Note: scores of 0.01–0.05 are normal for this index — not low confidence
     return None
 ```
 
@@ -755,6 +1142,7 @@ def check_confidence(api_result: dict) -> str | None:
 | Ingestion Orchestrator (Agent 5) | `claude-haiku-4-5` | < $0.001 |
 | Gap Analyzer (Agent 6) | `claude-sonnet-4-6` | ~$0.05–0.10 |
 | Diagnostics (Agent 7) | `claude-haiku-4-5` | < $0.005 |
+| Internal Banner Chatbot (Agent 8) | `claude-haiku-4-5` | < $0.002 per turn |
 
 Azure OpenAI costs (embedding + chat) remain the same regardless of which Claude model is used.
 
@@ -782,6 +1170,12 @@ tool dispatch loop and prompt logic without incurring API costs.
 5. **Agent 4 — Conversational**: Requires more careful session management
 6. **Agent 5 — Ingestion Orchestrator**: Useful but ingestion is currently rare
 7. **Agent 6 — Gap Analyzer**: High value for upgrade planning but complex to validate
+
+**Primary chatbot (internal users — this is the main Botpress target):**
+
+8. **Agent 8 — Internal Banner Chatbot**: Wraps the adapter `/chat/*` layer with intent
+   classification, sentiment-aware escalation, and a Banner-admin persona. This is the
+   agent Botpress calls.
 
 ---
 

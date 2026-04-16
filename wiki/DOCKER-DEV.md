@@ -149,13 +149,13 @@ curl -s http://localhost:8080/health
 # 3. Adapter → backend route (full pipeline test)
 curl -s -X POST http://localhost:8080/chat/intent \
   -H "Content-Type: application/json" \
-  -d '{"message":"When is the add/drop deadline?"}' | jq .
-# Expected: {"intent":"RegistrationBanner","confidence":...}
+  -d '{"message":"What changed in Banner 9.3.37?"}' | jq .
+# Expected: {"intent":"BannerRelease","confidence":...}
 
 # 4. Full ask through adapter
 curl -s -X POST http://localhost:8080/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"message":"What changed in Banner 9.3.37?","session_id":"test-1","intent":"ReleaseSummary"}' | jq .
+  -d '{"message":"What changed in Banner 9.3.37?","session_id":"test-1","intent":"BannerRelease"}' | jq .
 # Expected: {"answer":"...","confidence":...,"escalate":...,"sources":[...]}
 
 # 5. ngrok tunnel is up

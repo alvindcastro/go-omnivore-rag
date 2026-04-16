@@ -88,7 +88,7 @@ The backend is already fully built. The Botpress adapter layer calls these endpo
 
 ```
 [Botpress Cloud Widget]
-        ↓  (student types message)
+        ↓  (user types message)
 [Botpress Flow — Execute Code nodes]
         ↓  axios HTTP calls
 [Botpress Adapter — new Go microservice]   ← only new code in this repo
@@ -98,7 +98,7 @@ The backend is already fully built. The Botpress adapter layer calls these endpo
         └── POST /chat/summarize  → /banner/summarize/full
                 ↓
 [go-omnivore-rag backend — unchanged]
-        ├── /banner/ask           (module_filter=Student|Finance|etc)
+        ├── /banner/ask           (module_filter=General|Finance)
         ├── /sop/ask
         └── /banner/summarize/full
                 ↓
@@ -153,8 +153,10 @@ ask-banner/
 
 ### What it does
 
-Wraps `/banner/ask` and `/sop/ask`. Derives `confidence` from `sources[0].score` (a 0–1 value
-from Azure AI Search). Sets `escalate = true` when confidence < 0.5 or no results returned.
+Wraps `/banner/ask` and `/sop/ask`. Derives `confidence` from `sources[0].score` (a raw Azure AI Search
+hybrid score — NOT a normalized 0–1 value; typical range 0.01–0.05 for valid results).
+Sets `escalate = true` when `retrieval_count == 0` (hard gate) or `confidence < calibrated floor`
+(see `wiki/RUNBOOK.md § Azure AI Search Score Distribution` and `PLAN.md Phase B`).
 
 This is the only component that ever speaks to go-omnivore-rag. Everything above it (intent
 classifier, HTTP handlers, Botpress) works through the `AdapterClient` interface — never directly
@@ -191,11 +193,12 @@ live-integration code. The unit tests (httptest mock) still run without a live b
 
 ```python
 # After unit tests pass, validate against the real backend
-python agents/banner_ask.py "When is the add/drop deadline?"
-# Expected: answer with confidence > 0.5, sources list non-empty, escalate = false
+python agents/banner_ask.py "What changed in Banner General?"
+# Expected: answer with sources non-empty, escalate = false
+# Note: confidence will be 0.01–0.05 (normal for this index — NOT a sign of low quality)
 
 python agents/banner_ask.py "xyzzy nonsense question that matches nothing"
-# Expected: escalate = true, confidence < 0.5
+# Expected: escalate = true, retrieval_count = 0, confidence = 0
 ```
 
 ---
@@ -218,7 +221,7 @@ python agents/banner_ask.py "xyzzy nonsense question that matches nothing"
 | `rag.AskResponse` field | → | `AdapterResponse` field | Notes |
 |------------------------|---|------------------------|-------|
 | `sources[0].score` | → | `confidence` | 0.0 if no sources |
-| `retrieval_count == 0` OR `sources[0].score < 0.5` | → | `escalate = true` | Both conditions independently trigger |
+| `retrieval_count == 0` OR `confidence < calibrated floor` | → | `escalate = true` | See RUNBOOK § Score Distribution for floor value |
 | `sources[i].document_title` | → | `sources[i].title` | rename only |
 | `sources[i].page` | → | `sources[i].page` | pass-through |
 | `sources[i].sop_number` | → | `sources[i].sop_number` | empty string for banner source_type |
@@ -429,7 +432,9 @@ AdapterClient implementation:
 Confidence and escalation logic (must match CLAUDE.md contract exactly):
   Confidence = 0.0 if len(Sources) == 0
   Confidence = sources[0].Score otherwise
-  Escalate   = (Confidence < 0.5) || (RetrievalCount == 0)
+  Escalate   = (RetrievalCount == 0) || (Confidence < calibrated_floor)
+  // calibrated_floor: see RUNBOOK § Score Distribution and PLAN.md Phase B.
+  // Azure AI Search scores cluster 0.01–0.05 for valid results — 0.5 is NOT a valid threshold.
 
 HTTP client:
   - Use http.NewRequestWithContext to honour ctx cancellation
@@ -463,21 +468,22 @@ Once unit tests pass, validate against the real backend. Use Agent 1 from
 [CLAUDE_AGENTS.md](CLAUDE_AGENTS.md) or run these curl commands:
 
 ```bash
-# Healthy, high-confidence result — Escalate should be false
+# Valid result — Escalate should be false
 curl -s -X POST http://localhost:8000/banner/ask \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the add/drop deadline?", "module_filter": "Student", "top_k": 3}' \
+  -d '{"question": "What changed in Banner General?", "module_filter": "General", "top_k": 3}' \
   | jq '{answer: .answer, score: .sources[0].score, retrieval_count: .retrieval_count}'
 
-# Expected: score > 0.5, retrieval_count > 0
+# Expected: score ~0.01–0.05, retrieval_count > 0, escalate = false in adapter
+# Note: a score of 0.033 IS a good result for this index
 
-# Low-confidence result — Escalate should be true in the adapter layer
+# No-result query — Escalate should be true in the adapter layer
 curl -s -X POST http://localhost:8000/banner/ask \
   -H "Content-Type: application/json" \
   -d '{"question": "xyzzy placeholder nothing matches this", "top_k": 3}' \
   | jq '{score: .sources[0].score, retrieval_count: .retrieval_count}'
 
-# Expected: score < 0.5 or retrieval_count == 0
+# Expected: retrieval_count == 0 (primary escalation signal)
 ```
 
 If the backend returns unexpected shapes here, Agent 7 (diagnostics) will identify
@@ -577,16 +583,58 @@ TDD: only what makes failing tests pass.
 
 ## Phase 3 — Intent Classification (TDD)
 
-### 6 intents mapped to backend routes
+### Source-aware routing design
+
+The adapter uses a two-level routing system:
+
+1. **`source` field** (optional, explicit) — Botpress can set this directly to override intent routing. Values: `banner`, `finance`, `sop`, `auto`.
+2. **`intent` field** (fallback) — when `source` is absent or `"auto"`, `sourceFromIntent()` derives the source.
+
+**Why `source` instead of routing on intent directly:**  
+`/banner/ask` with no `module_filter` returns 0 results in practice (all indexed documents carry a module tag; an unfiltered search scores too low). Every query must carry a module context. The `source` field makes this explicit and gives Botpress flow control when needed.
+
+**Intent → source → backend mapping:**
+
+| Intent | Derived source | Backend call | module_filter |
+|---|---|---|---|
+| `BannerRelease` | `banner` | `/banner/ask` | `General` |
+| `BannerFinance` | `finance` | `/banner/ask` | `Finance` |
+| `SopQuery` | `sop` | `/sop/ask` | — |
+| `BannerAdmin` | `banner` | `/banner/ask` | `General` |
+| `General` | `banner` | `/banner/ask` | `General` |
+
+**Explicit source override examples** (Botpress sets `source` in the request body):
+
+```json
+{ "message": "...", "session_id": "...", "intent": "General", "source": "finance" }
+→ /banner/ask  module_filter=Finance
+
+{ "message": "...", "session_id": "...", "intent": "General", "source": "sop" }
+→ /sop/ask
+
+{ "message": "...", "session_id": "...", "intent": "BannerRelease" }
+→ /banner/ask  module_filter=General  (source derived from intent)
+```
+
+**`/chat/ask` request shape:**
+```json
+{
+  "message": "What changed in Banner General 9.3.37?",
+  "session_id": "botpress-abc123",
+  "intent": "BannerRelease"
+}
+```
+`source` is optional. Omit it and `intent` drives routing automatically.
+
+### 5 intents mapped to backend routes
 
 | Intent | Backend call | module_filter | Example questions |
 |---|---|---|---|
-| `RegistrationBanner` | `/banner/ask` | `Student` | "add/drop deadline", "how to register", "waitlist" |
-| `FinanceBanner` | `/banner/ask` | `Finance` | "fee due date", "how to pay tuition", "fee deferral" |
-| `TranscriptSop` | `/sop/ask` | — | "request a transcript", "official transcript" |
-| `HoldsSop` | `/sop/ask` | — | "hold on my account", "clear a hold" |
-| `ReleaseSummary` | `/banner/summarize/full` | — | "what changed in 9.3.37", "breaking changes", "release notes" |
-| `General` | `/banner/ask` | none | everything else |
+| `BannerRelease` | `/banner/ask` | `General` | "what changed in 9.3.37", "breaking changes", "release notes" |
+| `BannerFinance` | `/banner/ask` | `Finance` | "GL posting rules", "AR config", "budget setup" |
+| `SopQuery` | `/sop/ask` | — | "steps for smoke test", "procedure for job submission" |
+| `BannerAdmin` | `/banner/ask` | `General` | "Banner admin pages config", "module setup", "install" |
+| `General` | `/banner/ask` | `General` | everything else |
 
 ### TDD — `internal/intent/classifier_test.go`
 
@@ -597,13 +645,15 @@ func TestClassifier_KnownIntents(t *testing.T) {
         input    string
         expected Intent
     }{
-        {"When is the add/drop deadline?", RegistrationBanner},
-        {"How do I register for next semester?", RegistrationBanner},
-        {"When are my tuition fees due?", FinanceBanner},
-        {"How do I request an official transcript?", TranscriptSop},
-        {"There is a financial hold on my account", HoldsSop},
-        {"What changed in Banner General 9.3.37?", ReleaseSummary},
-        {"What is the weather today?", General},
+        {"What changed in Banner General 9.3.37?", BannerRelease},
+        {"What are the breaking changes in this release?", BannerRelease},
+        {"How do I configure AR in Banner Finance?", BannerFinance},
+        {"What are the GL posting rules?", BannerFinance},
+        {"Show me the steps for the post-upgrade smoke test", SopQuery},
+        {"Is there a procedure for Banner job submission?", SopQuery},
+        {"How do I set up Banner admin pages?", BannerAdmin},
+        {"What Banner modules are installed?", BannerAdmin},
+        {"Tell me a joke", General},
         {"help", General},
     }
     for _, tc := range cases {
@@ -614,7 +664,7 @@ func TestClassifier_KnownIntents(t *testing.T) {
 
 func TestClassifier_ConfidenceRange(t *testing.T) {
     c := NewClassifier(DefaultIntentConfig())
-    for _, msg := range []string{"register for COMP 1234", "pay my fees", "transcript request"} {
+    for _, msg := range []string{"what changed in 9.3.37", "GL posting rules", "smoke test procedure"} {
         r := c.Classify(msg)
         assert.GreaterOrEqual(t, r.Confidence, 0.0)
         assert.LessOrEqual(t, r.Confidence, 1.0)
@@ -630,20 +680,20 @@ func TestClassifier_AmbiguousDefaultsToGeneral(t *testing.T) {
 
 func TestClassifier_CustomConfig(t *testing.T) {
     cfg := IntentConfig{
-        RegistrationBanner: []string{"enroll"},
+        BannerAdmin: []string{"deploy"},
     }
     c := NewClassifier(cfg)
-    assert.Equal(t, RegistrationBanner, c.Classify("how do I enroll?").Intent)
+    assert.Equal(t, BannerAdmin, c.Classify("how do I deploy Banner?").Intent)
 }
 
-func TestClassifier_ReleaseSummaryDetectsVersion(t *testing.T) {
+func TestClassifier_BannerReleaseDetectsVersion(t *testing.T) {
     c := NewClassifier(DefaultIntentConfig())
     for _, msg := range []string{
         "What changed in 9.3.37?",
         "show me the breaking changes for Banner",
-        "release notes for Student 9.4",
+        "release notes for Banner General 9.4",
     } {
-        assert.Equal(t, ReleaseSummary, c.Classify(msg).Intent, "input: %q", msg)
+        assert.Equal(t, BannerRelease, c.Classify(msg).Intent, "input: %q", msg)
     }
 }
 ```
@@ -654,17 +704,16 @@ func TestClassifier_ReleaseSummaryDetectsVersion(t *testing.T) {
 Implement internal/intent/classifier.go to pass classifier_test.go.
 
 Requirements:
-- Intent enum: RegistrationBanner, FinanceBanner, TranscriptSop, HoldsSop, ReleaseSummary, General
+- Intent enum: BannerRelease, BannerFinance, SopQuery, BannerAdmin, General
 - IntentResult struct: { Intent Intent; Confidence float64 }
 - Classifier.Classify(message string) → IntentResult
 - Accept IntentConfig (map of Intent → []string keywords) for testability
 - DefaultIntentConfig() returns:
-    RegistrationBanner: ["register", "registration", "add/drop", "add drop", "waitlist", "enroll", "course selection"]
-    FinanceBanner:      ["fee", "fees", "tuition", "pay", "payment", "deferral", "invoice", "balance owing"]
-    TranscriptSop:      ["transcript", "official transcript", "unofficial transcript", "academic record"]
-    HoldsSop:           ["hold", "holds", "financial hold", "registration hold", "clear hold"]
-    ReleaseSummary:     ["what changed", "breaking changes", "release notes", "release", "version", "9.", "compatibility"]
-    General:            [] (fallback — no keywords)
+    BannerRelease: ["what changed", "breaking changes", "release notes", "release", "version", "9.", "compatibility", "upgrade", "changelog"]
+    BannerFinance: ["finance", "financial", "accounts receivable", "AR", "budget", "grant", "general ledger", "GL"]
+    SopQuery:      ["sop", "procedure", "how to", "steps", "process", "checklist", "runbook", "guide"]
+    BannerAdmin:   ["banner", "admin", "configuration", "setup", "module", "deploy", "install", "patch", "job submission"]
+    General:       [] (fallback — no keywords)
 - Scoring: each keyword match adds weight; longer phrase = higher weight;
   normalize winning score to 0–1
 - General fallback when no intent scores >= 0.3
@@ -691,17 +740,17 @@ TDD: only what makes failing tests pass.
 ```json
 // Request
 {
-  "message": "When is the add/drop deadline?",
+  "message": "What changed in Banner General 9.3.37?",
   "session_id": "botpress-abc123",
-  "intent": "RegistrationBanner"
+  "intent": "BannerRelease"
 }
 
 // 200 Response
 {
-  "answer": "The add/drop deadline for Winter 2025 is January 17th.",
+  "answer": "Banner General 9.3.37 introduces changes to the login page auth flow...",
   "confidence": 0.87,
   "sources": [
-    { "title": "Banner Student 9.3.37", "page": 12, "source_type": "banner" }
+    { "title": "Banner General Release Notes 9.3.37", "page": 4, "source_type": "banner" }
   ],
   "escalate": false
 }
@@ -710,20 +759,20 @@ TDD: only what makes failing tests pass.
 ### TDD — `api/handlers_test.go`
 
 ```go
-func TestChatAskHandler_ValidBannerIntent(t *testing.T) {
+func TestChatAskHandler_BannerReleaseIntent(t *testing.T) {
     mockClient := &mockAdapterClient{
         askBannerFn: func(ctx context.Context, q string, opts AskOptions) (AdapterResponse, error) {
-            assert.Equal(t, "Student", opts.ModuleFilter)
+            assert.Equal(t, "General", opts.ModuleFilter)
             return AdapterResponse{
-                Answer:     "Registration opens March 1st.",
+                Answer:     "Banner General 9.3.37 changes the login auth flow.",
                 Confidence: 0.83,
-                Sources:    []AdapterSource{{Title: "Banner Student 9.3.37", Page: 5}},
+                Sources:    []AdapterSource{{Title: "Banner General Release Notes 9.3.37", Page: 4}},
                 Escalate:   false,
             }, nil
         },
     }
 
-    body := `{"message":"When does registration open?","session_id":"s1","intent":"RegistrationBanner"}`
+    body := `{"message":"What changed in Banner 9.3.37?","session_id":"s1","intent":"BannerRelease"}`
     req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
     req.Header.Set("Content-Type", "application/json")
     w := httptest.NewRecorder()
@@ -740,11 +789,11 @@ func TestChatAskHandler_ValidBannerIntent(t *testing.T) {
 func TestChatAskHandler_SopIntent_CallsAskSop(t *testing.T) {
     mockClient := &mockAdapterClient{
         askSopFn: func(ctx context.Context, q string) (AdapterResponse, error) {
-            return AdapterResponse{Answer: "See SOP-42.", Confidence: 0.91}, nil
+            return AdapterResponse{Answer: "See SOP-122.", Confidence: 0.91}, nil
         },
     }
 
-    body := `{"message":"How do I request a transcript?","session_id":"s2","intent":"TranscriptSop"}`
+    body := `{"message":"What are the steps for the smoke test?","session_id":"s2","intent":"SopQuery"}`
     req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
     req.Header.Set("Content-Type", "application/json")
     w := httptest.NewRecorder()
@@ -772,7 +821,7 @@ func TestChatAskHandler_BackendError_Returns500_WithSafeMessage(t *testing.T) {
         },
     }
 
-    body := `{"message":"When does registration open?","session_id":"s4","intent":"RegistrationBanner"}`
+    body := `{"message":"What changed in Banner 9.3.37?","session_id":"s4","intent":"BannerRelease"}`
     req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
     req.Header.Set("Content-Type", "application/json")
     w := httptest.NewRecorder()
@@ -797,12 +846,11 @@ Context:
 - ChatHandler wraps an AdapterClient interface (not the concrete type) for testability
 - POST /chat/ask:
     Validate: message non-empty (return 400), session_id non-empty (return 400)
-    Route by intent field:
-        "RegistrationBanner" → AskBanner(ctx, msg, AskOptions{ModuleFilter: "Student"})
-        "FinanceBanner"      → AskBanner(ctx, msg, AskOptions{ModuleFilter: "Finance"})
-        "TranscriptSop"      → AskSop(ctx, msg)
-        "HoldsSop"           → AskSop(ctx, msg)
-        default / "General"  → AskBanner(ctx, msg, AskOptions{})
+    Derive source from intent via sourceFromIntent(), then route:
+        source="finance" → AskBanner(ctx, msg, AskOptions{ModuleFilter: "Finance"})
+        source="sop"     → AskSop(ctx, msg)
+        source="banner"  → AskBanner(ctx, msg, AskOptions{ModuleFilter: "General"})
+        default (unknown source) → return 400 {"error": "invalid source"}
     On error: return 500 with {"error": "internal server error"} — never leak upstream text
     On success: return AdapterResponse as JSON
 - GET /health: return {"status": "ok"}
@@ -834,12 +882,11 @@ TDD: make failing tests pass only.
 [Execute Code: POST /chat/intent]
     ↓
 [Intent router]
-    ├── RegistrationBanner → optional slot: "Which term?" 
-    ├── FinanceBanner       → optional slot: "Which fee type?"
-    ├── TranscriptSop       → go directly
-    ├── HoldsSop            → go directly
-    ├── ReleaseSummary      → slot: "Which Banner module/version?" (required for /summarize/full)
-    └── General             → go directly
+    ├── BannerRelease → optional slot: "Which module/version?"
+    ├── BannerFinance → go directly
+    ├── SopQuery      → go directly
+    ├── BannerAdmin   → go directly
+    └── General       → go directly
     ↓
 [Execute Code: POST /chat/ask — intent pre-filled]
     ↓  escalate = true?
@@ -866,7 +913,7 @@ workflow.sentiment = r.data.sentiment; // "Positive" | "Neutral" | "Frustrated"
 **Intent detection:**
 ```javascript
 const r = await axios.post(`${RAG}/chat/intent`, { message: event.preview });
-workflow.intent = r.data.intent;             // "RegistrationBanner" | "FinanceBanner" | ...
+workflow.intent = r.data.intent;             // "BannerRelease" | "BannerFinance" | "SopQuery" | ...
 workflow.intentConfidence = r.data.confidence;
 ```
 
@@ -918,10 +965,10 @@ RAG_ADAPTER_URL=https://ask-banner.fly.dev   # or ngrok URL for local dev
 
 | Time | Action |
 |---|---|
-| 0:00 | Show demo page: "Student-facing assistant built on our Banner RAG backend" |
-| 0:30 | Type "When is the add/drop deadline?" → grounded answer with source title + page |
-| 1:00 | Type "How do I request a transcript?" → SOP routing path |
-| 1:30 | Type "I've been waiting 3 days and nobody answers me!!!" → frustrated escalation |
+| 0:00 | Show demo page: "Internal Banner assistant — release notes and SOP Q&A" |
+| 0:30 | Type "What changed in Banner General 9.3.37?" → grounded answer with source title + page |
+| 1:00 | Type "Is there a procedure for the post-upgrade smoke test?" → SOP routing path |
+| 1:30 | Type "THIS IS BROKEN NOTHING WORKS!!!" → frustrated escalation |
 | 2:00 | Type something obscure → low-confidence `escalate=true` path |
 | 2:30 | Flip to GoLand → run `go test ./... -v -race` → all green |
 
@@ -947,18 +994,20 @@ RAG_ADAPTER_URL=https://ask-banner.fly.dev   # or ngrok URL for local dev
 
 ## What this is
 Thin Botpress adapter over the go-omnivore-rag backend.
-Student-facing Tier 0 chatbot for Banner ERP Q&A.
+Internal-user chatbot for Banner ERP Q&A: release notes, module changes, and SOPs.
+Target audience: IT staff, functional analysts, Banner admins.
 
 ## Backend API (go-omnivore-rag — do not modify)
 POST /banner/ask       { question (required), module_filter?, version_filter?, year_filter?, top_k? }
 POST /sop/ask          { question (required), top_k? }
 POST /banner/summarize/full  { filename (required), banner_module?, banner_version?, top_k? }
 Returns rag.AskResponse:  { answer, question, retrieval_count, sources[] }
-sources[0].score = confidence value (0–1, from Azure AI Search)
+sources[0].score = raw Azure AI Search hybrid score (NOT normalized 0–1).
+                   Typical range for valid results: 0.01–0.05.
 
 ## This repo — new code only
 internal/adapter   → HTTP client wrapping go-omnivore-rag
-internal/intent    → keyword intent classifier (6 intents)
+internal/intent    → keyword intent classifier (5 intents)
 internal/sentiment → rule-based sentiment analyzer
 api/handlers       → /chat/* endpoints consumed by Botpress
 
@@ -966,17 +1015,17 @@ api/handlers       → /chat/* endpoints consumed by Botpress
 - STRICT TDD: test first (red), then implement (green), then refactor
 - No external dependencies beyond stdlib + testify
 - Handlers return structured JSON errors — never leak upstream error messages
-- Confidence = sources[0].score; Escalate = true when confidence < 0.5 or retrieval_count == 0
+- Confidence = sources[0].score; Escalate = true when retrieval_count == 0 OR confidence < calibrated floor
 - All handlers accept injected interfaces — no concrete types in constructors
 
 ## Test runner
-go test ./... -v -race
+go test ./... -v
+(CGO not available; omit -race)
 
 ## Intent → backend routing table
-RegistrationBanner → /banner/ask  module_filter=Student
-FinanceBanner      → /banner/ask  module_filter=Finance
-TranscriptSop      → /sop/ask
-HoldsSop           → /sop/ask
-ReleaseSummary     → /banner/summarize/full
-General            → /banner/ask  (no filter)
+BannerRelease → /banner/ask  module_filter=General
+BannerFinance → /banner/ask  module_filter=Finance
+SopQuery      → /sop/ask
+BannerAdmin   → /banner/ask  module_filter=General
+General       → /banner/ask  module_filter=General
 ```

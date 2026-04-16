@@ -4,16 +4,15 @@ import (
 	"strings"
 )
 
-// Intent represents one of the 6 classified routing intents.
+// Intent represents one of the 5 classified routing intents.
 type Intent string
 
 const (
-	RegistrationBanner Intent = "RegistrationBanner"
-	FinanceBanner      Intent = "FinanceBanner"
-	TranscriptSop      Intent = "TranscriptSop"
-	HoldsSop           Intent = "HoldsSop"
-	ReleaseSummary     Intent = "ReleaseSummary"
-	General            Intent = "General"
+	BannerRelease Intent = "BannerRelease"
+	BannerFinance Intent = "BannerFinance"
+	SopQuery      Intent = "SopQuery"
+	BannerAdmin   Intent = "BannerAdmin"
+	General       Intent = "General"
 )
 
 // IntentResult holds the classified intent and a normalized confidence (0–1).
@@ -25,35 +24,35 @@ type IntentResult struct {
 // IntentConfig maps each intent to its keyword list.
 // Leave a slice nil or empty to use no keywords for that intent (General is always the fallback).
 type IntentConfig struct {
-	RegistrationBanner []string
-	FinanceBanner      []string
-	TranscriptSop      []string
-	HoldsSop           []string
-	ReleaseSummary     []string
+	BannerRelease []string
+	BannerFinance []string
+	SopQuery      []string
+	BannerAdmin   []string
 }
 
 // DefaultIntentConfig returns the production keyword configuration.
 func DefaultIntentConfig() IntentConfig {
 	return IntentConfig{
-		RegistrationBanner: []string{
-			"register", "registration", "add/drop", "add drop", "waitlist", "enroll", "course selection",
+		BannerRelease: []string{
+			"what changed", "breaking changes", "release notes",
+			"release", "version", "upgrade", "patch", "9.", "compatibility",
 		},
-		FinanceBanner: []string{
-			"fee", "fees", "tuition", "pay", "payment", "deferral", "invoice", "balance owing",
+		BannerFinance: []string{
+			"general ledger", "accounts receivable", "journal entry", "fund code",
+			"budget", "grant", "fiscal", "encumbrance", "finance",
 		},
-		TranscriptSop: []string{
-			"transcript", "official transcript", "unofficial transcript", "academic record",
+		SopQuery: []string{
+			"how to", "how do i", "steps to", "step by step",
+			"procedure", "sop", "process", "guide",
 		},
-		HoldsSop: []string{
-			"hold", "holds", "financial hold", "registration hold", "clear hold",
-		},
-		ReleaseSummary: []string{
-			"what changed", "breaking changes", "release notes", "release", "version", "9.", "compatibility",
+		BannerAdmin: []string{
+			"configure", "configuration", "security role", "parameter",
+			"permission", "module", "install", "setup",
 		},
 	}
 }
 
-// Classifier classifies messages into one of the 6 intents.
+// Classifier classifies messages into one of the 5 intents.
 type Classifier struct {
 	cfg IntentConfig
 }
@@ -75,11 +74,10 @@ func (c *Classifier) Classify(message string) IntentResult {
 		words  []string
 	}
 	candidates := []candidate{
-		{RegistrationBanner, c.cfg.RegistrationBanner},
-		{FinanceBanner, c.cfg.FinanceBanner},
-		{TranscriptSop, c.cfg.TranscriptSop},
-		{HoldsSop, c.cfg.HoldsSop},
-		{ReleaseSummary, c.cfg.ReleaseSummary},
+		{BannerRelease, c.cfg.BannerRelease},
+		{BannerFinance, c.cfg.BannerFinance},
+		{SopQuery, c.cfg.SopQuery},
+		{BannerAdmin, c.cfg.BannerAdmin},
 	}
 
 	scores := make(map[Intent]float64, len(candidates))
@@ -117,7 +115,6 @@ func scoreKeywords(lower string, keywords []string) float64 {
 	for _, kw := range keywords {
 		kl := strings.ToLower(kw)
 		if strings.Contains(lower, kl) {
-			// Longer phrase = more specific = higher weight
 			wordCount := len(strings.Fields(kl))
 			score += float64(wordCount) * 0.3
 		}

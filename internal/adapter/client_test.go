@@ -47,7 +47,7 @@ func TestAdapterClient_BannerAsk_LowConfidence_SetsEscalate(t *testing.T) {
 		json.NewEncoder(w).Encode(ragAskResponse{
 			Answer:         "I'm not sure.",
 			RetrievalCount: 1,
-			Sources:        []ragSourceChunk{{Score: 0.31}},
+			Sources:        []ragSourceChunk{{Score: 0.3}}, // below 0.5 threshold
 		})
 	}))
 	defer srv.Close()
@@ -95,9 +95,9 @@ func TestAdapterClient_WithModuleFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req bannerAskRequest
 		json.NewDecoder(r.Body).Decode(&req)
-		assert.Equal(t, "Student", req.ModuleFilter)
+		assert.Equal(t, "Finance", req.ModuleFilter)
 		json.NewEncoder(w).Encode(ragAskResponse{
-			Answer:         "Registration opens on...",
+			Answer:         "The fiscal year closes on...",
 			RetrievalCount: 1,
 			Sources:        []ragSourceChunk{{Score: 0.78}},
 		})
@@ -105,8 +105,8 @@ func TestAdapterClient_WithModuleFilter(t *testing.T) {
 	defer srv.Close()
 
 	client := NewAdapterClient(srv.URL)
-	_, err := client.AskBanner(context.Background(), "When does registration open?",
-		AskOptions{ModuleFilter: "Student"})
+	_, err := client.AskBanner(context.Background(), "When does the fiscal year close?",
+		AskOptions{ModuleFilter: "Finance"})
 
 	require.NoError(t, err)
 }
