@@ -1,20 +1,18 @@
 info:
-  name: Ask
+  name: Ask (User Guide)
   type: http
   seq: 2
 
 http:
   method: POST
-  url: "{{base_url}}/banner/student/ask"
+  url: "{{base_url}}/banner/finance/ask"
   body:
     type: json
     data: |-
       {
-        "question": "What is a CRN in Banner Student?",
+        "question": "How do I enter a journal entry voucher in Banner Finance?",
         "top_k": 5,
-        "version_filter": "",
-        "section_filter": "",
-        "mode": "local"
+        "source_type": "banner_user_guide"
       }
   auth: inherit
 

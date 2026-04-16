@@ -1,7 +1,7 @@
 info:
-  name: Ask
+  name: Ask (User Guide)
   type: http
-  seq: 2
+  seq: 6
 
 http:
   method: POST
@@ -10,11 +10,9 @@ http:
     type: json
     data: |-
       {
-        "question": "What is a CRN in Banner Student?",
+        "question": "Where is the student name search form in Banner?",
         "top_k": 5,
-        "version_filter": "",
-        "section_filter": "",
-        "mode": "local"
+        "source_type": "banner_user_guide"
       }
   auth: inherit
 
