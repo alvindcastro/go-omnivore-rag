@@ -108,6 +108,61 @@ func TestAdapterClient_SopAsk_RoutesCorrectly(t *testing.T) {
 	assert.Equal(t, "sop", result.Sources[0].SourceType)
 }
 
+func TestAdapterClient_AskBannerGuide_Success(t *testing.T) {
+	var capturedBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/banner/general/ask", r.URL.Path)
+		assert.Equal(t, http.MethodPost, r.Method)
+		json.NewDecoder(r.Body).Decode(&capturedBody)
+		json.NewEncoder(w).Encode(ragAskResponse{
+			Answer:         "Navigate to the Banner main menu via...",
+			RetrievalCount: 2,
+			Sources:        []ragSourceChunk{{Score: 0.042, DocumentTitle: "Banner General Use Guide", SourceType: "banner_user_guide"}},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewAdapterClient(srv.URL)
+	result, err := client.AskBannerGuide(context.Background(), "How do I navigate the Banner main menu?", "general")
+
+	require.NoError(t, err)
+	assert.False(t, result.Escalate)
+	assert.Greater(t, result.Confidence, 0.0)
+	assert.Equal(t, "banner_user_guide", capturedBody["source_type"])
+	assert.Nil(t, capturedBody["version_filter"], "version_filter must not be set for user guide queries")
+	assert.Nil(t, capturedBody["year_filter"], "year_filter must not be set for user guide queries")
+}
+
+func TestAdapterClient_AskBannerGuide_NoResults_Escalates(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(ragAskResponse{RetrievalCount: 0, Sources: []ragSourceChunk{}})
+	}))
+	defer srv.Close()
+
+	client := NewAdapterClient(srv.URL)
+	result, err := client.AskBannerGuide(context.Background(), "something obscure", "general")
+
+	require.NoError(t, err)
+	assert.True(t, result.Escalate)
+}
+
+func TestAdapterClient_AskBannerGuide_Module(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/banner/student/ask", r.URL.Path)
+		json.NewEncoder(w).Encode(ragAskResponse{
+			Answer:         "Student form navigation...",
+			RetrievalCount: 1,
+			Sources:        []ragSourceChunk{{Score: 0.035}},
+		})
+	}))
+	defer srv.Close()
+
+	client := NewAdapterClient(srv.URL)
+	_, err := client.AskBannerGuide(context.Background(), "How do I look up a student?", "student")
+
+	require.NoError(t, err)
+}
+
 func TestAdapterClient_WithModuleFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req bannerAskRequest

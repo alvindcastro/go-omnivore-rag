@@ -14,8 +14,9 @@ import (
 
 // mockAdapterClient is a test double for AdapterClient.
 type mockAdapterClient struct {
-	askBannerFn func(ctx context.Context, q string, opts AskOptions) (AdapterResponse, error)
-	askSopFn    func(ctx context.Context, q string) (AdapterResponse, error)
+	askBannerFn      func(ctx context.Context, q string, opts AskOptions) (AdapterResponse, error)
+	askSopFn         func(ctx context.Context, q string) (AdapterResponse, error)
+	askBannerGuideFn func(ctx context.Context, q string, module string) (AdapterResponse, error)
 }
 
 func (m *mockAdapterClient) AskBanner(ctx context.Context, question string, opts AskOptions) (AdapterResponse, error) {
@@ -28,6 +29,13 @@ func (m *mockAdapterClient) AskBanner(ctx context.Context, question string, opts
 func (m *mockAdapterClient) AskSop(ctx context.Context, question string) (AdapterResponse, error) {
 	if m.askSopFn != nil {
 		return m.askSopFn(ctx, question)
+	}
+	return AdapterResponse{}, nil
+}
+
+func (m *mockAdapterClient) AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error) {
+	if m.askBannerGuideFn != nil {
+		return m.askBannerGuideFn(ctx, question, module)
 	}
 	return AdapterResponse{}, nil
 }

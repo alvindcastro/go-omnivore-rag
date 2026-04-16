@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -86,6 +87,28 @@ func (c *AdapterClient) AskBanner(ctx context.Context, question string, opts Ask
 	}
 	var raw ragAskResponse
 	if err := c.post(ctx, "/banner/ask", body, &raw); err != nil {
+		return AdapterResponse{}, err
+	}
+	return mapResponse(raw), nil
+}
+
+// bannerGuideAskRequest is the JSON body for /banner/:module/ask with user guide source.
+type bannerGuideAskRequest struct {
+	Question   string `json:"question"`
+	SourceType string `json:"source_type"`
+	TopK       int    `json:"top_k,omitempty"`
+}
+
+// AskBannerGuide queries /banner/:module/ask scoped to banner_user_guide source type.
+// No version or year filter — user guide docs are not versioned.
+func (c *AdapterClient) AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error) {
+	path := fmt.Sprintf("/banner/%s/ask", strings.ToLower(module))
+	body := bannerGuideAskRequest{
+		Question:   question,
+		SourceType: "banner_user_guide",
+	}
+	var raw ragAskResponse
+	if err := c.post(ctx, path, body, &raw); err != nil {
 		return AdapterResponse{}, err
 	}
 	return mapResponse(raw), nil

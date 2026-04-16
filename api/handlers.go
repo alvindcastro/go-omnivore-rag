@@ -20,6 +20,7 @@ type AdapterSource = adapter.AdapterSource
 type AdapterClient interface {
 	AskBanner(ctx context.Context, question string, opts AskOptions) (AdapterResponse, error)
 	AskSop(ctx context.Context, question string) (AdapterResponse, error)
+	AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error)
 }
 
 // chatAskRequest is the JSON body expected by POST /chat/ask.
