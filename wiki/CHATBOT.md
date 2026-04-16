@@ -895,10 +895,24 @@ RAG_ADAPTER_URL=https://ask-banner.fly.dev   # or ngrok URL for local dev
 
 ### `demo/index.html`
 - Mock college header — brand colours `#003366` / `#0066CC`
-- Page title: "Student Self-Service"
-- Fake nav links: Registration | Fees | Transcripts | Contact
+- Page title: "Banner Admin Assistant" *(updated from "Student Self-Service" to target IT/admin persona)*
+- Nav links: Upgrades | Server SOPs | Version Info | Contact
 - Visible callout: "Ask our virtual assistant 24/7 — powered by Banner documentation"
+- Three topic cards: Banner Upgrades, Server Restart SOP, Banner Version Info
+- "Try asking" chip row with sample questions
 - Botpress widget `<script>` tag at bottom of body
+
+### Implementation checklist
+
+- [x] Create `demo/index.html` with brand colours `#003366` / `#0066CC`
+- [x] Admin-persona nav: Upgrades | Server SOPs | Version Info | Contact
+- [x] Hero callout present
+- [x] Cards: Banner Upgrades, Server Restart SOP, Banner Version Info, Contact & Escalation
+- [x] "Try asking" chip row — Banner upgrade, SOP restart, version number, breaking changes, module impact
+- [x] Botpress `<script>` embed with placeholder `YOUR_BOT_ID`
+- [x] Replace `YOUR_BOT_ID` with real Botpress Cloud shareable bot ID (`3b6cf557-bc0a-4197-b16a-29c79706809f`)
+- [ ] Set `RAG_ADAPTER_URL` env var in Botpress Cloud (ngrok or Fly.io)
+- [ ] Record Loom demo using script below
 
 ### Loom recording script (3 min)
 

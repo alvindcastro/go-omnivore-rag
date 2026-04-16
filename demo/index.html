@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Student Self-Service</title>
+  <title>Banner Admin Assistant</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -138,6 +138,44 @@
 
     .card a:hover { text-decoration: underline; }
 
+    /* ── Sample questions ── */
+    .questions-section {
+      max-width: 1100px;
+      margin: 0 auto 2.5rem;
+      padding: 0 2rem;
+    }
+
+    .questions-section h2 {
+      font-size: 1rem;
+      color: #003366;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .questions-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .q-chip {
+      background: #fff;
+      border: 1px solid #0066CC;
+      color: #0066CC;
+      border-radius: 20px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .q-chip:hover {
+      background: #0066CC;
+      color: #fff;
+    }
+
     /* ── Footer ── */
     footer {
       background: #003366;
@@ -153,23 +191,23 @@
 
   <!-- Header -->
   <header>
-    <div class="logo">Ellucian <span>Banner</span> Self-Service</div>
+    <div class="logo">Ellucian <span>Banner</span> Admin Assistant</div>
   </header>
 
   <!-- Navigation -->
   <nav>
     <ul>
-      <li><a href="#">Registration</a></li>
-      <li><a href="#">Fees</a></li>
-      <li><a href="#">Transcripts</a></li>
+      <li><a href="#">Upgrades</a></li>
+      <li><a href="#">Server SOPs</a></li>
+      <li><a href="#">Version Info</a></li>
       <li><a href="#">Contact</a></li>
     </ul>
   </nav>
 
   <!-- Hero / callout -->
   <section class="hero">
-    <h1>Student Self-Service</h1>
-    <p>Access registration, financial, and academic information in one place.</p>
+    <h1>Banner Admin Assistant</h1>
+    <p>Get instant answers on Banner upgrades, server SOPs, and release version details — powered by your own documentation.</p>
     <div class="callout">
       Ask our virtual assistant 24/7 — powered by Banner documentation
     </div>
@@ -178,30 +216,42 @@
   <!-- Quick-link cards -->
   <main>
     <div class="card">
-      <h2>Registration</h2>
-      <p>View open sections, manage your course schedule, and track waitlist status.</p>
-      <a href="#">Go to Registration &rarr;</a>
+      <h2>Banner Upgrades</h2>
+      <p>Ask about what changed in a release, breaking changes, compatibility notes, and required action items for any Banner version.</p>
+      <a href="#">Browse Release Notes &rarr;</a>
     </div>
     <div class="card">
-      <h2>Fees &amp; Payments</h2>
-      <p>Review your account balance, pay tuition, and set up a payment deferral plan.</p>
-      <a href="#">View Account &rarr;</a>
+      <h2>Server Restart SOP</h2>
+      <p>Look up the standard operating procedure for restarting Banner application servers, including pre-checks and rollback steps.</p>
+      <a href="#">Browse SOPs &rarr;</a>
     </div>
     <div class="card">
-      <h2>Transcripts</h2>
-      <p>Request official or unofficial transcripts and track your academic record.</p>
-      <a href="#">Request Transcript &rarr;</a>
+      <h2>Banner Version Info</h2>
+      <p>Find the current Banner version number, module-level versions, and upgrade history across Student, Finance, and General.</p>
+      <a href="#">View Version History &rarr;</a>
     </div>
     <div class="card">
-      <h2>Contact &amp; Support</h2>
-      <p>Reach the Registrar or Financial Aid office for complex or urgent matters.</p>
-      <a href="#">Contact Us &rarr;</a>
+      <h2>Contact &amp; Escalation</h2>
+      <p>Reach the Banner admin team for issues the assistant can't resolve with high confidence.</p>
+      <a href="#">Contact Support &rarr;</a>
     </div>
   </main>
 
+  <!-- Sample questions -->
+  <section class="questions-section">
+    <h2>Try asking</h2>
+    <div class="questions-list">
+      <span class="q-chip">What changed in Banner 9.3.37?</span>
+      <span class="q-chip">What is the SOP for restarting a Banner application server?</span>
+      <span class="q-chip">What is the current Banner version number?</span>
+      <span class="q-chip">Are there any breaking changes in the latest release?</span>
+      <span class="q-chip">What Banner modules are affected by the 9.4 upgrade?</span>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer>
-    &copy; 2025 Student Services &mdash; Powered by go-omnivore-rag + Botpress
+    &copy; 2025 Banner Admin Team &mdash; Powered by go-omnivore-rag + Botpress
   </footer>
 
   <!--
@@ -209,24 +259,16 @@
     Replace YOUR_BOT_ID with the real Botpress shareable bot ID once deployed.
     Set RAG_ADAPTER_URL env var in Botpress Cloud → your adapter URL.
     ──────────────────────────────────────────────────────────────────────────── -->
-  <script src="https://cdn.botpress.cloud/webchat/v2.2/inject.js"></script>
+  <script src="https://cdn.botpress.cloud/webchat/v2/inject.js"></script>
   <script>
     window.botpressWebChat.init({
-      botId: "YOUR_BOT_ID",           // TODO: replace with real Botpress bot ID
-      hostUrl: "https://cdn.botpress.cloud/webchat/v2.2",
-      messagingUrl: "https://messaging.botpress.cloud",
-      clientId: "YOUR_BOT_ID",        // same as botId for Botpress Cloud v2
-      botName: "Ask Banner",
-      avatarUrl: "",
-      phoneNumber: "",
-      termsConditions: "",
-      privacyPolicy: "",
-      emailAddress: "",
-      website: "",
+      botId: '3b6cf557-bc0a-4197-b16a-29c79706809f',
+      hostUrl: 'https://cdn.botpress.cloud/webchat/v2',
+      messagingUrl: 'https://messaging.botpress.cloud',
+      clientId: '3b6cf557-bc0a-4197-b16a-29c79706809f',
+      botName: 'Ask Banner',
       showPoweredBy: false,
-      theme: "prism",
-      themeColor: "#003366",
-      allowedOrigins: []
+      enableConversationDeletion: true,
     });
   </script>
 

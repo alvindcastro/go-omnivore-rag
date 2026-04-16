@@ -586,7 +586,20 @@ go-omnivore-rag/
 │   └── docs/
 │       ├── banner/                    ← Banner release note PDFs
 │       └── sop/                       ← SOP .docx files
-├── wiki/                              ← Technical docs (internals, deployment, integrations)
+├── wiki/                              ← Technical docs (see index below)
+│   ├── LOCAL-DEV.md                   ← Setup, startup sequence, env var reference
+│   ├── BOTPRESS-SETUP.md              ← Botpress Cloud wiring, Execute Code snippets
+│   ├── FLY-NGROK.md                   ← Fly.io + ngrok deployment, secrets, IDs
+│   ├── TROUBLESHOOTING.md             ← Symptoms → root cause → fix (all layers)
+│   ├── CHATBOT.md                     ← Architecture, TDD phases, stretch goals
+│   ├── INTERNALS.md                   ← Deep design decisions and data-flow walkthrough
+│   ├── INTEGRATIONS.md                ← LangGraph, n8n, MCP, and other integration ideas
+│   ├── DOCKER_ACA.md                  ← Docker and Azure Container Apps deployment
+│   ├── AZURE_FUNCTIONS.md             ← Event-driven patterns with Azure Functions
+│   ├── OBSERVABILITY.md               ← Logging, metrics, tracing, alerting
+│   ├── DATABASE.md                    ← pgvector, SQL patterns, migration path
+│   ├── UPGRADES.md                    ← API hardening, RAG quality, dev experience
+│   └── CLAUDE_AGENTS.md               ← Claude agent designs over this backend
 ├── .env.example
 └── go.mod
 ```
@@ -665,6 +678,25 @@ Potential improvements roughly ordered by value:
 **CI/CD & Deployment**
 - [ ] **GitHub Actions** — `go build`, `go vet`, `go test ./...` on every push
 - [x] **Dockerfile + docker-compose** — run the stack without needing Go installed locally
+
+---
+
+## Wiki
+
+| Guide | What it covers |
+|---|---|
+| [LOCAL-DEV.md](wiki/LOCAL-DEV.md) | First-time setup, dev session startup, running tests, common commands |
+| [BOTPRESS-SETUP.md](wiki/BOTPRESS-SETUP.md) | Botpress Cloud wiring, all Execute Code snippets, widget config |
+| [FLY-NGROK.md](wiki/FLY-NGROK.md) | Fly.io secrets, ngrok tunnel, deploy commands, app IDs |
+| [TROUBLESHOOTING.md](wiki/TROUBLESHOOTING.md) | Symptoms → root cause → fix for every layer of the stack |
+| [CHATBOT.md](wiki/CHATBOT.md) | Architecture, TDD phases, intent routing table, Botpress flow design |
+| [INTERNALS.md](wiki/INTERNALS.md) | Design decisions, data flow, chunking strategy, known limitations |
+| [INTEGRATIONS.md](wiki/INTEGRATIONS.md) | LangGraph, n8n, MCP, RAG evaluation framework ideas |
+| [DOCKER_ACA.md](wiki/DOCKER_ACA.md) | Docker build, docker-compose, Azure Container Apps deployment |
+| [OBSERVABILITY.md](wiki/OBSERVABILITY.md) | Structured logging, metrics, tracing, alerting, SLOs |
+| [DATABASE.md](wiki/DATABASE.md) | pgvector, AI-ready SQL patterns, Azure Search → Postgres migration |
+| [UPGRADES.md](wiki/UPGRADES.md) | API hardening, RAG quality improvements, streaming, dev experience |
+| [CLAUDE_AGENTS.md](wiki/CLAUDE_AGENTS.md) | Claude agent designs (Banner Ask, SOP Navigator, diagnostics, etc.) |
 
 ---
 

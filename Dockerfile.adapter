@@ -1,0 +1,43 @@
+# Dockerfile.adapter
+# Builds only the Ask Banner adapter (cmd/server/main.go).
+# This is what Fly.io deploys — NOT the full go-omnivore-rag backend.
+# The adapter has zero Azure dependencies; it needs only RAG_BACKEND_URL at runtime.
+
+# ── Stage 1: Builder ─────────────────────────────────────────────────────────
+FROM golang:1.24-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o /dist/ask-banner ./cmd/server/main.go
+
+# ── Stage 2: Final image ──────────────────────────────────────────────────────
+FROM alpine:3.21
+
+# ca-certificates: required for HTTPS calls to the ngrok tunnel
+# wget: used by the HEALTHCHECK
+RUN apk add --no-cache ca-certificates wget
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /dist/ask-banner ./ask-banner
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:8080/health || exit 1
+
+# Runtime env vars (set as Fly secrets, not baked in):
+#   RAG_BACKEND_URL — ngrok tunnel URL pointing at localhost:8000
+CMD ["./ask-banner"]
