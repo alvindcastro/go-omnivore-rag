@@ -1,4 +1,8 @@
 services:
+
+  # ── RAG Backend ──────────────────────────────────────────────────────────────
+  # Builds from Dockerfile (full image: Swagger, Azure deps).
+  # Needs all AZURE_* vars from .env.
   http:
     build: .
     image: go-omnivore-rag
@@ -17,6 +21,8 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # gRPC interface (same binary set, different command).
+  # Optional — omit if you only need the HTTP API.
   grpc:
     image: go-omnivore-rag
     command: ["./omnivore-grpc"]
@@ -28,5 +34,46 @@ services:
       - ./data:/app/data
     depends_on:
       http:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Botpress Adapter ─────────────────────────────────────────────────────────
+  # Builds from Dockerfile.adapter (lean ~15 MB image, no Azure deps).
+  # Talks to the backend over Docker's internal network — no ngrok for the backend.
+  adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.adapter
+    image: ask-banner-adapter
+    ports:
+      - "8080:8080"
+    environment:
+      RAG_BACKEND_URL: http://http:8000   # Docker service DNS — no ngrok needed here
+    depends_on:
+      http:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ── ngrok tunnel ─────────────────────────────────────────────────────────────
+  # Exposes the adapter (port 8080) to Botpress Cloud via a public HTTPS URL.
+  # Requires NGROK_AUTHTOKEN in .env.
+  # After startup, get the public URL:
+  #   curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+  # Set that URL as RAG_ADAPTER_URL in Botpress Cloud → Configuration → Environment Variables.
+  ngrok:
+    image: ngrok/ngrok:latest
+    command: http adapter:8080 --log stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    ports:
+      - "4040:4040"   # ngrok inspector / web UI
+    depends_on:
+      adapter:
         condition: service_healthy
     restart: unless-stopped

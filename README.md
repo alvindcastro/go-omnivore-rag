@@ -588,6 +588,7 @@ go-omnivore-rag/
 │       └── sop/                       ← SOP .docx files
 ├── wiki/                              ← Technical docs (see index below)
 │   ├── LOCAL-DEV.md                   ← Setup, startup sequence, env var reference
+│   ├── DOCKER-DEV.md                  ← Full Docker Compose stack (backend + adapter + ngrok)
 │   ├── BOTPRESS-SETUP.md              ← Botpress Cloud wiring, Execute Code snippets
 │   ├── FLY-NGROK.md                   ← Fly.io + ngrok deployment, secrets, IDs
 │   ├── TROUBLESHOOTING.md             ← Symptoms → root cause → fix (all layers)
@@ -686,6 +687,7 @@ Potential improvements roughly ordered by value:
 | Guide | What it covers |
 |---|---|
 | [LOCAL-DEV.md](wiki/LOCAL-DEV.md) | First-time setup, dev session startup, running tests, common commands |
+| [DOCKER-DEV.md](wiki/DOCKER-DEV.md) | Full Docker Compose stack (backend + adapter + ngrok), one-command startup |
 | [BOTPRESS-SETUP.md](wiki/BOTPRESS-SETUP.md) | Botpress Cloud wiring, all Execute Code snippets, widget config |
 | [FLY-NGROK.md](wiki/FLY-NGROK.md) | Fly.io secrets, ngrok tunnel, deploy commands, app IDs |
 | [TROUBLESHOOTING.md](wiki/TROUBLESHOOTING.md) | Symptoms → root cause → fix for every layer of the stack |

@@ -1,5 +1,8 @@
 # Ask Banner — Deployment & Configuration Notes
 
+> **Local dev?** Docker Compose is simpler — see [DOCKER-DEV.md](DOCKER-DEV.md).
+> This document covers the Fly.io path (persistent cloud deployment for sharing/portfolio).
+
 ## Fly.io App
 
 | Field | Value |

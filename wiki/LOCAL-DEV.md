@@ -68,7 +68,20 @@ go build ./cmd/...
 
 ---
 
-## Dev session startup — run in order
+## Option A — Docker Compose (recommended)
+
+Run the entire stack with a single command. No Go toolchain or local ngrok install needed.
+See [DOCKER-DEV.md](DOCKER-DEV.md) for the full guide.
+
+```bash
+# Build images and start backend + adapter + ngrok
+docker compose up --build
+
+# Get the ngrok public URL (set this in Botpress Cloud as RAG_ADAPTER_URL)
+curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+```
+
+## Option B — Run Go directly (dev session startup)
 
 Every dev session, open three terminals:
 
