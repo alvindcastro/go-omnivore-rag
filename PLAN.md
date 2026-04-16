@@ -235,7 +235,7 @@ re-run score distribution analysis as the index grows (new documents change scor
 
 ### Tasks
 
-- [ ] **C.1 — Design and document Agent 9 in CLAUDE_AGENTS.md**
+- [x] **C.1 — Design and document Agent 9 in CLAUDE_AGENTS.md**
 
   **Prompt for implementer:**
   Append Agent 9 to `wiki/CLAUDE_AGENTS.md` using the design in the "Agent 9" section
@@ -251,7 +251,7 @@ re-run score distribution analysis as the index grows (new documents change scor
   - Output a Markdown table: query, retrieval_count, score, has_useful_answer, verdict
   - Conclude with: recommended floor, confidence in recommendation, next review date
 
-- [ ] **C.2 — Add Agent 9 to Tool Reference table in CLAUDE_AGENTS.md**
+- [x] **C.2 — Add Agent 9 to Tool Reference table in CLAUDE_AGENTS.md**
 
   **Prompt for implementer:**
   In the Tool Reference table, Agent 9 reuses existing tools. Add a note row:

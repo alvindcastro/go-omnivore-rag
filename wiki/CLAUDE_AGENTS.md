@@ -1094,6 +1094,8 @@ Threshold of 0.010 sits safely in the middle with margin. Rounds down to nearest
 | `chat_ask` | POST | `/chat/ask` | 8 |
 | `chat_intent` | POST | `/chat/intent` | 8 |
 | `chat_sentiment` | POST | `/chat/sentiment` | 8 |
+| (calibration protocol) | POST | `/banner/ask` | 9 |
+| (calibration protocol) | GET | `/index/stats` | 9 |
 
 ---
 
@@ -1112,6 +1114,7 @@ agents/
 ├── ingestion.py       # Agent 5
 ├── gap_analyzer.py    # Agent 6
 ├── diagnostics.py     # Agent 7
+├── calibration.py     # Agent 9
 └── cli.py             # Entry point: pick agent by command-line arg
 ```
 
@@ -1143,6 +1146,7 @@ def check_confidence(api_result: dict) -> str | None:
 | Gap Analyzer (Agent 6) | `claude-sonnet-4-6` | ~$0.05–0.10 |
 | Diagnostics (Agent 7) | `claude-haiku-4-5` | < $0.005 |
 | Internal Banner Chatbot (Agent 8) | `claude-haiku-4-5` | < $0.002 per turn |
+| Confidence Calibration (Agent 9) | `claude-haiku-4-5` | < $0.005 per run |
 
 Azure OpenAI costs (embedding + chat) remain the same regardless of which Claude model is used.
 
