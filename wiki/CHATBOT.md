@@ -220,8 +220,16 @@ python agents/banner_ask.py "xyzzy nonsense question that matches nothing"
 
 | `rag.AskResponse` field | → | `AdapterResponse` field | Notes |
 |------------------------|---|------------------------|-------|
-| `sources[0].score` | → | `confidence` | 0.0 if no sources |
+| `sources[0].score` | → | `confidence` | 0.0 if no sources; typical range 0.01–0.05 for valid results |
 | `retrieval_count == 0` OR `confidence < calibrated floor` | → | `escalate = true` | See RUNBOOK § Score Distribution for floor value |
+
+> **Escalation semantics:** `escalate: true` when:
+> - `retrieval_count == 0` — nothing indexed for this query (hard gate, always reliable)
+> - `confidence < calibrated floor` — near-zero score even with some results (soft noise guard only)
+>
+> **NOTE:** Confidence values for this index are typically **0.01–0.05**. A value of `0.033` with
+> sources present is a **good answer**, not a low-confidence one. The Azure AI Search hybrid score
+> is NOT a normalized 0–1 confidence — do not compare it to normalized thresholds like 0.5.
 | `sources[i].document_title` | → | `sources[i].title` | rename only |
 | `sources[i].page` | → | `sources[i].page` | pass-through |
 | `sources[i].sop_number` | → | `sources[i].sop_number` | empty string for banner source_type |
@@ -748,12 +756,15 @@ TDD: only what makes failing tests pass.
 // 200 Response
 {
   "answer": "Banner General 9.3.37 introduces changes to the login page auth flow...",
-  "confidence": 0.87,
+  "confidence": 0.033,
   "sources": [
     { "title": "Banner General Release Notes 9.3.37", "page": 4, "source_type": "banner" }
   ],
   "escalate": false
 }
+// NOTE: confidence is the raw Azure AI Search hybrid score (0.01–0.05 is normal for this index).
+// escalate: true when retrieval_count == 0 (no indexed docs) OR confidence < calibrated floor.
+// A confidence of 0.033 with sources present is a GOOD answer — do not treat it as low quality.
 ```
 
 ### TDD — `api/handlers_test.go`

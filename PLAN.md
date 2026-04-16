@@ -266,13 +266,13 @@ re-run score distribution analysis as the index grows (new documents change scor
 
 ### Tasks
 
-- [ ] **D.1 — Update CLAUDE.md**
+- [x] **D.1 — Update CLAUDE.md**
 
   Already covered in B.4. Additionally: confirm the "Non-negotiable rules" section
   escalate rule is updated. Confirm the backend API comment block still accurately
   describes `sources[0].score`.
 
-- [ ] **D.2 — Add score distribution section to wiki/RUNBOOK.md**
+- [x] **D.2 — Add score distribution section to wiki/RUNBOOK.md**
 
   **Prompt for implementer:**
   Create or update `wiki/RUNBOOK.md`. Add section "## Azure AI Search Score Behavior"
@@ -283,7 +283,7 @@ re-run score distribution analysis as the index grows (new documents change scor
   - The score floor is a secondary guard against near-zero noise, not a quality gate
   - Include the calibration query results table from Phase A.2
 
-- [ ] **D.3 — Update wiki/CHATBOT.md escalation section**
+- [x] **D.3 — Update wiki/CHATBOT.md escalation section**
 
   **Prompt for implementer:**
   In `wiki/CHATBOT.md`, find any reference to the escalate threshold (0.5 or 0.01).
@@ -303,9 +303,9 @@ re-run score distribution analysis as the index grows (new documents change scor
 - [ ] `go test ./... -v` passes with 0 failures
 - [ ] `score=0.033, retrieval_count=3` → `escalate: false`
 - [ ] `score=0, retrieval_count=0` → `escalate: true`
-- [ ] CLAUDE.md escalate rule no longer references 0.5
-- [ ] wiki/RUNBOOK.md has score distribution section with real data
-- [ ] Agent 9 documented in CLAUDE_AGENTS.md
+- [x] CLAUDE.md escalate rule no longer references 0.5
+- [x] wiki/RUNBOOK.md has score distribution section with real data
+- [x] Agent 9 documented in CLAUDE_AGENTS.md
 - [ ] `/chat/ask` returns a useful answer for "What changed in Banner?"
 
 ---
