@@ -1,0 +1,240 @@
+{
+  "version": "1.0.0",
+  "id": "f1a2b3c4-d5e6-7890-abcd-ef1234567890",
+  "name": "ask-banner",
+  "description": "Tier 0 student-facing chatbot for Banner ERP Q&A. Routes questions through sentiment pre-filter, intent classification, and RAG-backed answer retrieval with escalation logic.",
+  "variables": [
+    { "name": "sentiment",         "type": "string",  "defaultValue": "" },
+    { "name": "sentimentScore",    "type": "number",  "defaultValue": 0 },
+    { "name": "intent",            "type": "string",  "defaultValue": "General" },
+    { "name": "intentConfidence",  "type": "number",  "defaultValue": 0 },
+    { "name": "answer",            "type": "string",  "defaultValue": "" },
+    { "name": "confidence",        "type": "number",  "defaultValue": 0 },
+    { "name": "escalate",          "type": "boolean", "defaultValue": false },
+    { "name": "sources",           "type": "array",   "defaultValue": [] }
+  ],
+  "nodes": [
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "type": "trigger",
+      "name": "Start",
+      "description": "Flow entry point — fires on every new user message",
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000002" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "type": "capture",
+      "name": "Capture Student Message",
+      "description": "Capture and store the student's question",
+      "variable": "event.preview",
+      "prompt": "How can I help you today? You can ask about registration, fees, transcripts, academic holds, or Banner release notes.",
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000003" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "type": "execute-code",
+      "name": "Check Sentiment",
+      "description": "POST /chat/sentiment — detects frustration before routing to intent",
+      "code": "const axios = require('axios');\nconst RAG = process.env.RAG_ADAPTER_URL;\nconst r = await axios.post(`${RAG}/chat/sentiment`, { message: event.preview });\nworkflow.sentimentScore = r.data.score;\nworkflow.sentiment = r.data.sentiment;",
+      "next": [
+        {
+          "condition": "workflow.sentiment === 'Frustrated' || workflow.sentimentScore > 0.7",
+          "node": "00000000-0000-0000-0000-000000000004"
+        },
+        {
+          "condition": "true",
+          "node": "00000000-0000-0000-0000-000000000006"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "type": "say",
+      "name": "Frustrated Acknowledgement",
+      "description": "Acknowledge frustration and offer human escalation",
+      "content": {
+        "type": "text",
+        "text": "I can see you're frustrated. Let me connect you with someone who can help directly."
+      },
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000005" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000005",
+      "type": "say",
+      "name": "Escalation Card",
+      "description": "Display Registrar contact details and end the flow",
+      "content": {
+        "type": "card",
+        "title": "Office of the Registrar",
+        "subtitle": "Our team is ready to help you.",
+        "items": [
+          { "label": "Email",  "value": "registrar@college.edu" },
+          { "label": "Phone",  "value": "555-0100" },
+          { "label": "Hours",  "value": "Monday–Friday, 8am–5pm" }
+        ]
+      },
+      "next": []
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000006",
+      "type": "execute-code",
+      "name": "Detect Intent",
+      "description": "POST /chat/intent — classify the student's question into one of 6 intents",
+      "code": "const axios = require('axios');\nconst RAG = process.env.RAG_ADAPTER_URL;\nconst r = await axios.post(`${RAG}/chat/intent`, { message: event.preview });\nworkflow.intent = r.data.intent;\nworkflow.intentConfidence = r.data.confidence;",
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000007" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000007",
+      "type": "router",
+      "name": "Intent Router",
+      "description": "Route to intent-specific slot-filling nodes before calling /chat/ask",
+      "next": [
+        {
+          "condition": "workflow.intent === 'RegistrationBanner'",
+          "node": "00000000-0000-0000-0000-000000000008"
+        },
+        {
+          "condition": "workflow.intent === 'FinanceBanner'",
+          "node": "00000000-0000-0000-0000-000000000009"
+        },
+        {
+          "condition": "workflow.intent === 'ReleaseSummary'",
+          "node": "00000000-0000-0000-0000-000000000010"
+        },
+        {
+          "condition": "workflow.intent === 'TranscriptSop' || workflow.intent === 'HoldsSop' || workflow.intent === 'General'",
+          "node": "00000000-0000-0000-0000-000000000011"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000008",
+      "type": "say",
+      "name": "Registration Slot",
+      "description": "Optional clarification for registration questions",
+      "content": {
+        "type": "text",
+        "text": "Which term are you asking about? (e.g. Fall 2026, Winter 2027)"
+      },
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000011" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000009",
+      "type": "say",
+      "name": "Finance Slot",
+      "description": "Optional clarification for finance questions",
+      "content": {
+        "type": "text",
+        "text": "Which fee or payment type are you asking about? (e.g. tuition, deferral plan, invoice)"
+      },
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000011" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000010",
+      "type": "capture",
+      "name": "Release Summary Slot",
+      "description": "Required slot — Banner module and version are needed for summarize/full",
+      "variable": "workflow.releaseContext",
+      "prompt": "Which Banner module and version would you like a release summary for? (e.g. Banner Student 9.3.37)",
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000011" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000011",
+      "type": "execute-code",
+      "name": "Call Ask API",
+      "description": "POST /chat/ask — retrieve a RAG-backed answer using the classified intent",
+      "code": "const axios = require('axios');\nconst RAG = process.env.RAG_ADAPTER_URL;\nconst r = await axios.post(`${RAG}/chat/ask`, {\n  message: event.preview,\n  session_id: event.botId + '-' + event.userId,\n  intent: workflow.intent || 'General'\n});\nworkflow.answer = r.data.answer;\nworkflow.confidence = r.data.confidence;\nworkflow.escalate = r.data.escalate;\nworkflow.sources = r.data.sources;",
+      "next": [
+        {
+          "condition": "workflow.escalate === true",
+          "node": "00000000-0000-0000-0000-000000000012"
+        },
+        {
+          "condition": "true",
+          "node": "00000000-0000-0000-0000-000000000013"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000012",
+      "type": "say",
+      "name": "Low Confidence Escalation",
+      "description": "Answer confidence too low — surface human contact instead",
+      "content": {
+        "type": "text",
+        "text": "I don't have a confident answer for that. Here's who can help:\n\n**Office of the Registrar**\nEmail: registrar@college.edu | Phone: 555-0100 | Mon–Fri 8am–5pm"
+      },
+      "next": []
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000013",
+      "type": "execute-code",
+      "name": "Format Answer",
+      "description": "Build the answer text with inline source citations",
+      "code": "const citations = (workflow.sources || []).map((s, i) => `[${i+1}] ${s.title}${s.page ? ', p.' + s.page : ''}`).join('\\n');\nworkflow.formattedAnswer = workflow.answer + (citations ? '\\n\\n**Sources:**\\n' + citations : '');",
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000014" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000014",
+      "type": "say",
+      "name": "Display Answer",
+      "description": "Show the RAG answer with source citations",
+      "content": {
+        "type": "text",
+        "text": "{{workflow.formattedAnswer}}"
+      },
+      "next": [
+        { "condition": "true", "node": "00000000-0000-0000-0000-000000000015" }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000015",
+      "type": "capture",
+      "name": "Feedback",
+      "description": "Thumbs-up / thumbs-down satisfaction check",
+      "variable": "workflow.feedback",
+      "prompt": "Was this helpful?",
+      "options": [
+        { "label": "👍 Yes, thanks!", "value": "positive" },
+        { "label": "👎 No, I need more help", "value": "negative" }
+      ],
+      "next": [
+        {
+          "condition": "workflow.feedback === 'negative'",
+          "node": "00000000-0000-0000-0000-000000000005"
+        },
+        {
+          "condition": "true",
+          "node": "00000000-0000-0000-0000-000000000016"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000016",
+      "type": "say",
+      "name": "End",
+      "description": "Closing message — offer to restart",
+      "content": {
+        "type": "text",
+        "text": "Glad I could help! Feel free to ask another question any time."
+      },
+      "next": []
+    }
+  ]
+}

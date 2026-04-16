@@ -108,3 +108,83 @@ func TestChatAskHandler_BackendError_Returns500_WithSafeMessage(t *testing.T) {
 	assert.Equal(t, "internal server error", errBody["error"])
 	assert.NotContains(t, w.Body.String(), "connection refused")
 }
+
+func TestSentimentHandler_Frustrated(t *testing.T) {
+	body := `{"message":"WHY IS THIS NOT WORKING???"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/sentiment", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, "Frustrated", resp["sentiment"])
+	assert.Greater(t, resp["score"].(float64), 0.6)
+}
+
+func TestSentimentHandler_Neutral(t *testing.T) {
+	body := `{"message":"When is the add/drop deadline?"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/sentiment", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, "Neutral", resp["sentiment"])
+}
+
+func TestSentimentHandler_MissingMessage_Returns400(t *testing.T) {
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/sentiment", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestIntentHandler_RegistrationBanner(t *testing.T) {
+	body := `{"message":"When is the add/drop deadline?"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/intent", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, "RegistrationBanner", resp["intent"])
+	assert.Greater(t, resp["confidence"].(float64), 0.0)
+}
+
+func TestIntentHandler_General_LowConfidence(t *testing.T) {
+	body := `{"message":"I have a question"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/intent", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp map[string]interface{}
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Equal(t, "General", resp["intent"])
+}
+
+func TestIntentHandler_MissingMessage_Returns400(t *testing.T) {
+	body := `{}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/intent", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(&mockAdapterClient{}).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}

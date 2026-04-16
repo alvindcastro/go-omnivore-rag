@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	"go-omnivore-rag/internal/adapter"
+	"go-omnivore-rag/internal/intent"
+	"go-omnivore-rag/internal/sentiment"
 )
 
 // Type aliases so callers (and test files) can reference them without the adapter prefix.
@@ -40,6 +42,8 @@ type ChatHandler struct {
 func NewChatHandler(client AdapterClient) *ChatHandler {
 	h := &ChatHandler{mux: http.NewServeMux()}
 	h.mux.HandleFunc("/chat/ask", askHandler(client))
+	h.mux.HandleFunc("/chat/sentiment", sentimentHandler(sentiment.NewAnalyzer(sentiment.DefaultConfig())))
+	h.mux.HandleFunc("/chat/intent", intentHandler(intent.NewClassifier(intent.DefaultIntentConfig())))
 	h.mux.HandleFunc("/health", healthHandler)
 	return h
 }
@@ -99,6 +103,66 @@ func askHandler(client AdapterClient) http.HandlerFunc {
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// sentimentHandler returns the http.HandlerFunc for POST /chat/sentiment.
+func sentimentHandler(analyzer *sentiment.Analyzer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		var req struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		if req.Message == "" {
+			writeJSONError(w, http.StatusBadRequest, "message is required")
+			return
+		}
+
+		result := analyzer.Analyze(req.Message)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"sentiment": string(result.Sentiment),
+			"score":     result.Score,
+		})
+	}
+}
+
+// intentHandler returns the http.HandlerFunc for POST /chat/intent.
+func intentHandler(classifier *intent.Classifier) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+
+		var req struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON")
+			return
+		}
+		if req.Message == "" {
+			writeJSONError(w, http.StatusBadRequest, "message is required")
+			return
+		}
+
+		result := classifier.Classify(req.Message)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"intent":     string(result.Intent),
+			"confidence": result.Confidence,
+		})
+	}
 }
 
 // writeJSONError writes a structured JSON error — never leaks upstream details.
