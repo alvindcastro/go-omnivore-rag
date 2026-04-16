@@ -595,7 +595,7 @@ TDD: only what makes failing tests pass.
 
 The adapter uses a two-level routing system:
 
-1. **`source` field** (optional, explicit) — Botpress can set this directly to override intent routing. Values: `banner`, `finance`, `sop`, `auto`.
+1. **`source` field** (optional, explicit) — Botpress can set this directly to override intent routing. Values: `banner`, `finance`, `sop`, `user_guide`, `user_guide_student`, `user_guide_finance`, `auto`.
 2. **`intent` field** (fallback) — when `source` is absent or `"auto"`, `sourceFromIntent()` derives the source.
 
 **Why `source` instead of routing on intent directly:**  
@@ -609,6 +609,7 @@ The adapter uses a two-level routing system:
 | `BannerFinance` | `finance` | `/banner/ask` | `Finance` |
 | `SopQuery` | `sop` | `/sop/ask` | — |
 | `BannerAdmin` | `banner` | `/banner/ask` | `General` |
+| `BannerUsage` | `user_guide` | `/banner/general/ask` | — (source_type=banner_user_guide) |
 | `General` | `banner` | `/banner/ask` | `General` |
 
 **Explicit source override examples** (Botpress sets `source` in the request body):
@@ -642,6 +643,7 @@ The adapter uses a two-level routing system:
 | `BannerFinance` | `/banner/ask` | `Finance` | "GL posting rules", "AR config", "budget setup" |
 | `SopQuery` | `/sop/ask` | — | "steps for smoke test", "procedure for job submission" |
 | `BannerAdmin` | `/banner/ask` | `General` | "Banner admin pages config", "module setup", "install" |
+| `BannerUsage` | `/banner/general/ask` | — | "how do I navigate Banner", "where is the journal entry form", "user guide" |
 | `General` | `/banner/ask` | `General` | everything else |
 
 ### TDD — `internal/intent/classifier_test.go`
@@ -982,6 +984,40 @@ RAG_ADAPTER_URL=https://ask-banner.fly.dev   # or ngrok URL for local dev
 | 1:30 | Type "THIS IS BROKEN NOTHING WORKS!!!" → frustrated escalation |
 | 2:00 | Type something obscure → low-confidence `escalate=true` path |
 | 2:30 | Flip to GoLand → run `go test ./... -v -race` → all green |
+
+---
+
+## User Guide Q&A
+
+The `user_guide` source family routes to the indexed Ellucian Banner user guide PDFs
+(`source_type=banner_user_guide`) rather than release notes or SOPs. Use it for questions
+about navigating Banner — forms, screens, fields, lookups, and workflow steps.
+
+### When to use `user_guide` vs `banner`
+
+| Question type | Source | Backend |
+|---|---|---|
+| "What changed in Banner 9.3.37?" | `banner` | `/banner/ask` (release notes) |
+| "How do I enter a journal entry?" | `user_guide_finance` | `/banner/finance/ask` (user guide) |
+| "How to restart the Banner server" | `sop` | `/sop/ask` (SOPs) |
+| "Where is the student name search?" | `user_guide_student` | `/banner/student/ask` (user guide) |
+| "How do I navigate the Banner main menu?" | `user_guide` | `/banner/general/ask` (user guide) |
+
+### Source override values
+
+| Source value | Backend endpoint | Notes |
+|---|---|---|
+| `user_guide` | `/banner/general/ask` | General module user guide (default) |
+| `user_guide_student` | `/banner/student/ask` | Student module user guide |
+| `user_guide_finance` | `/banner/finance/ask` | Finance module user guide (returns 0 results until PDFs are ingested) |
+
+**Important:** Never set `version_filter` or `year_filter` for any `user_guide` source. User
+guide PDFs carry no version metadata — filtering by version returns 0 results.
+
+### Intent auto-routing
+
+The `BannerUsage` intent automatically resolves to `user_guide` (General module). Botpress
+can also set the source explicitly to target a specific module.
 
 ---
 

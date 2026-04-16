@@ -15,7 +15,7 @@ sources[0].score = raw Azure AI Search hybrid score (NOT a normalized 0–1 conf
 
 ## This repo — new code only
 internal/adapter   → HTTP client wrapping go-omnivore-rag
-internal/intent    → keyword intent classifier (5 intents)
+internal/intent    → keyword intent classifier (6 intents)
 internal/sentiment → rule-based sentiment analyzer
 api/handlers       → /chat/* endpoints consumed by Botpress
 

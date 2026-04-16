@@ -464,7 +464,7 @@ Keyword scoring: each match = word_count × 0.3. Multi-word phrases beat SopQuer
 
   Run: `go test ./api/... -v`
 
-- [ ] **E.4 — Update CLAUDE.md**
+- [x] **E.4 — Update CLAUDE.md**
 
   **Prompt for implementer:**
   In `CLAUDE.md`:
@@ -485,13 +485,13 @@ Keyword scoring: each match = word_count × 0.3. Multi-word phrases beat SopQuer
   4. Add note: "No version_filter or year_filter for user_guide sources — user guide PDFs
      carry no version metadata."
 
-- [ ] **E.5 — Document Agent 10 in wiki/CLAUDE_AGENTS.md**
+- [x] **E.5 — Document Agent 10 in wiki/CLAUDE_AGENTS.md**
 
   **Prompt for implementer:**
   Append Agent 10 (Banner User Guide Navigation Agent) to `wiki/CLAUDE_AGENTS.md`.
   See the Agent 10 section already added below. Add to TOC and Tool Reference table.
 
-- [ ] **E.6 — Update wiki/CHATBOT.md**
+- [x] **E.6 — Update wiki/CHATBOT.md**
 
   **Prompt for implementer:**
   In `wiki/CHATBOT.md`:
