@@ -432,7 +432,7 @@ Keyword scoring: each match = word_count × 0.3. Multi-word phrases beat SopQuer
 
   Run: `go test ./internal/adapter/... -v`
 
-- [ ] **E.3 — TDD: `user_guide` source routing in `/chat/ask`**
+- [x] **E.3 — TDD: `user_guide` source routing in `/chat/ask`**
 
   **Prompt for implementer:**
   In `api/handlers.go`:

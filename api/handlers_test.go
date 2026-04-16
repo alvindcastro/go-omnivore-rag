@@ -315,3 +315,83 @@ func TestChatAskHandler_SourceBanner_UsesGeneralFilter(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestChatAsk_UserGuide_RoutesToGeneral(t *testing.T) {
+	var gotModule string
+	mockClient := &mockAdapterClient{
+		askBannerGuideFn: func(_ context.Context, _ string, module string) (AdapterResponse, error) {
+			gotModule = module
+			return AdapterResponse{Answer: "Use the main menu.", Confidence: 0.04}, nil
+		},
+	}
+
+	body := `{"message":"How do I navigate the Banner main menu?","session_id":"s12","source":"user_guide"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "general", gotModule)
+}
+
+func TestChatAsk_UserGuide_Student(t *testing.T) {
+	var gotModule string
+	mockClient := &mockAdapterClient{
+		askBannerGuideFn: func(_ context.Context, _ string, module string) (AdapterResponse, error) {
+			gotModule = module
+			return AdapterResponse{Answer: "Student guide answer.", Confidence: 0.03}, nil
+		},
+	}
+
+	body := `{"message":"How do I look up a student record?","session_id":"s13","source":"user_guide_student"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "student", gotModule)
+}
+
+func TestChatAsk_UserGuide_Finance(t *testing.T) {
+	var gotModule string
+	mockClient := &mockAdapterClient{
+		askBannerGuideFn: func(_ context.Context, _ string, module string) (AdapterResponse, error) {
+			gotModule = module
+			return AdapterResponse{Answer: "Finance guide answer.", Confidence: 0.03}, nil
+		},
+	}
+
+	body := `{"message":"Where do I find the journal voucher form?","session_id":"s14","source":"user_guide_finance"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "finance", gotModule)
+}
+
+func TestChatAsk_BannerUsageIntent_RoutesToUserGuide(t *testing.T) {
+	var gotModule string
+	mockClient := &mockAdapterClient{
+		askBannerGuideFn: func(_ context.Context, _ string, module string) (AdapterResponse, error) {
+			gotModule = module
+			return AdapterResponse{Answer: "Navigate via the main menu.", Confidence: 0.035}, nil
+		},
+	}
+
+	body := `{"message":"How do I navigate the Banner main menu?","session_id":"s15","intent":"BannerUsage"}`
+	req := httptest.NewRequest(http.MethodPost, "/chat/ask", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	NewChatHandler(mockClient).ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "general", gotModule)
+}

@@ -93,6 +93,12 @@ func askHandler(client AdapterClient) http.HandlerFunc {
 			resp, err = client.AskBanner(r.Context(), req.Message, AskOptions{ModuleFilter: "Finance"})
 		case "sop":
 			resp, err = client.AskSop(r.Context(), req.Message)
+		case "user_guide":
+			resp, err = client.AskBannerGuide(r.Context(), req.Message, "general")
+		case "user_guide_student":
+			resp, err = client.AskBannerGuide(r.Context(), req.Message, "student")
+		case "user_guide_finance":
+			resp, err = client.AskBannerGuide(r.Context(), req.Message, "finance")
 		default:
 			writeJSONError(w, http.StatusBadRequest, "invalid source")
 			return
@@ -183,6 +189,8 @@ func sourceFromIntent(i string) string {
 		return "finance"
 	case "SopQuery":
 		return "sop"
+	case "BannerUsage":
+		return "user_guide"
 	default: // BannerRelease, BannerAdmin, General, unknown
 		return "banner"
 	}
