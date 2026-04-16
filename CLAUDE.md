@@ -32,11 +32,12 @@ api/handlers       → /chat/* endpoints consumed by Botpress
 go test ./... -v
 (CGO not available in this environment; omit -race)
 
-## Intent set (5 intents — internal user audience)
+## Intent set (6 intents — internal user audience)
 BannerRelease  → questions about release notes, versions, upgrades, breaking changes
 BannerFinance  → Finance module questions (GL, AR, budget, grants)
-SopQuery       → any procedural / SOP question ("how to", "steps", "procedure")
+SopQuery       → IT operational procedures ("how to restart", "smoke test", "SOP", "process")
 BannerAdmin    → general Banner config, admin, setup, module questions
+BannerUsage    → how to USE Banner ERP — forms, screens, navigation, lookups, field meanings
 General        → catch-all fallback
 
 ## Intent → backend routing table
@@ -47,12 +48,19 @@ BannerRelease  → /banner/ask  module_filter=General
 BannerFinance  → /banner/ask  module_filter=Finance
 SopQuery       → /sop/ask
 BannerAdmin    → /banner/ask  module_filter=General
+BannerUsage    → /banner/general/ask  source_type=banner_user_guide  (user guide, no version/year filter)
 General        → /banner/ask  module_filter=General
 
 Source override (optional field in /chat/ask body):
-  source=banner   → module_filter=General  (all non-Finance Banner questions)
-  source=finance  → module_filter=Finance
-  source=sop      → /sop/ask
-  source=auto     → derive from intent (same as omitting source)
-  source=student  → INVALID (returns 400)
-  source=general  → INVALID (returns 400)
+  source=banner              → module_filter=General  (release notes / all non-Finance Banner)
+  source=finance             → module_filter=Finance  (release notes)
+  source=sop                 → /sop/ask
+  source=user_guide          → /banner/general/ask  source_type=banner_user_guide
+  source=user_guide_student  → /banner/student/ask  source_type=banner_user_guide
+  source=user_guide_finance  → /banner/finance/ask  source_type=banner_user_guide
+  source=auto                → derive from intent (same as omitting source)
+  source=student             → INVALID (returns 400)
+  source=general             → INVALID (returns 400)
+
+NOTE: Never set version_filter or year_filter for user_guide sources — user guide PDFs
+carry no version metadata and filtering by version will return 0 results.

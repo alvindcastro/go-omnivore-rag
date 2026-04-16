@@ -17,9 +17,10 @@ Each agent wraps the existing HTTP API as tools — no changes to the Go backend
 8. [Agent 7: Index Health & Diagnostics Agent](#agent-7-index-health--diagnostics-agent)
 9. [Agent 8: Internal Banner Chatbot Agent](#agent-8-internal-banner-chatbot-agent)
 10. [Agent 9: Confidence Calibration Agent](#agent-9-confidence-calibration-agent)
-11. [Tool Reference: API-to-Tool Mapping](#tool-reference-api-to-tool-mapping)
-12. [Implementation Notes](#implementation-notes)
-13. [Priority Recommendation](#priority-recommendation)
+11. [Agent 10: Banner User Guide Navigation Agent](#agent-10-banner-user-guide-navigation-agent)
+12. [Tool Reference: API-to-Tool Mapping](#tool-reference-api-to-tool-mapping)
+13. [Implementation Notes](#implementation-notes)
+14. [Priority Recommendation](#priority-recommendation)
 
 ---
 
@@ -1079,6 +1080,164 @@ Threshold of 0.010 sits safely in the middle with margin. Rounds down to nearest
 
 ---
 
+## Agent 10: Banner User Guide Navigation Agent
+
+**Purpose:** Answer "how to use Banner" questions for IT staff and functional analysts.
+Routes to the indexed Banner user guide PDFs (`source_type=banner_user_guide`) — not release
+notes. Covers form navigation, field meanings, workflow steps, and UI lookups. No version or
+year filter — user guides are not versioned.
+
+**Use case:** An IT analyst asks "How do I run a journal entry in Banner Finance?" or
+"Where is the student search form?" — this agent finds the answer in the Ellucian user guide
+PDF rather than release notes or SOPs.
+
+**Type:** Simple tool-use agent (1–2 tool calls). Uses the `user_guide` source routing
+added in Phase E. Module auto-detected from question context.
+
+**Available user guide modules (as of 2026-04-16):**
+- `general` — Banner General - Use - Ellucian.pdf
+- `student` — Banner Student - Use - Ellucian.pdf
+- `finance` — PDFs TBD (route returns 0 results until ingested)
+
+### Tools
+
+```python
+USER_GUIDE_TOOLS = [
+    {
+        "name": "user_guide_ask",
+        "description": (
+            "Search the Ellucian Banner user guide PDFs and answer a question about how to "
+            "USE Banner ERP — navigation, forms, screens, fields, lookups, workflows. "
+            "These are functional user guides, NOT release notes or SOPs. "
+            "Set module to 'general' for Banner General forms, 'student' for student records, "
+            "'finance' for Finance module. "
+            "Do NOT set version_filter or year_filter — user guides carry no version metadata."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "The how-to question to answer"},
+                "module": {
+                    "type": "string",
+                    "enum": ["general", "student", "finance"],
+                    "description": "Banner module — determines which user guide to search",
+                    "default": "general",
+                },
+                "top_k": {"type": "integer", "description": "Number of source chunks", "default": 5},
+            },
+            "required": ["question"],
+        },
+    }
+]
+```
+
+### System Prompt
+
+```python
+USER_GUIDE_SYSTEM = """You are a Banner ERP navigation assistant for IT staff and functional analysts.
+Answer questions about how to USE Ellucian Banner ERP — navigating forms, entering records,
+running queries, and understanding field meanings. Use the user_guide_ask tool.
+
+Rules:
+- Always call user_guide_ask before answering. Never answer from prior knowledge alone.
+- Detect module from the user's question:
+    * "finance", "journal", "budget", "GL", "fund code" → module=finance
+    * "student", "registration", "enrollment", "applicant" → module=student
+    * Default (navigation, general forms, Banner menus) → module=general
+- Do NOT set version_filter or year_filter. User guides have no version metadata.
+- If retrieval_count == 0, say "I couldn't find that in the Banner user guide. The relevant
+  module may not be indexed yet. Try checking the Ellucian documentation portal directly."
+- Cite the section heading and page number from the source chunks.
+- Keep answers procedural: numbered steps when describing a workflow.
+- If the question is about release notes or upgrades, redirect: "That sounds like a release
+  note question — try asking without 'how to' for release history."
+- Note: Azure AI Search scores for this index are typically 0.01–0.05 — a score of 0.033
+  is a valid answer, not low confidence."""
+```
+
+### Implementation
+
+```python
+def user_guide_agent(question: str, session_id: str = "default") -> str:
+    """Answer how-to questions from the Banner user guide index."""
+
+    def run_user_guide_tool(tool_input: dict) -> str:
+        module = tool_input.get("module", "general")
+        body = {
+            "question": tool_input["question"],
+            "source_type": "banner_user_guide",
+            "top_k": tool_input.get("top_k", 5),
+            # Deliberately no version_filter or year_filter
+        }
+        result = call_api("POST", f"/banner/{module}/ask", body)
+        return json.dumps(result)
+
+    messages = [{"role": "user", "content": question}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1024,
+            system=USER_GUIDE_SYSTEM,
+            tools=USER_GUIDE_TOOLS,
+            messages=messages,
+        )
+
+        if response.stop_reason == "end_turn":
+            return next(b.text for b in response.content if b.type == "text")
+
+        tool_results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                result = run_user_guide_tool(dict(block.input))
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": result,
+                })
+
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": tool_results})
+```
+
+### Example Session
+
+```
+User: How do I run a journal entry voucher in Banner Finance?
+
+Agent: [calls user_guide_ask(question="How do I run a journal entry voucher?", module="finance")]
+       → {answer: "To process a journal entry in Banner Finance, navigate to FGAJVCD...",
+          retrieval_count: 4, sources[0].score: 0.038}
+
+Answer: To process a journal entry voucher in Banner Finance:
+1. Navigate to the Journal Voucher Entry form (FGAJVCD)
+2. Enter the fund and org codes in the key block...
+Source: Banner Finance - Use - Ellucian.pdf, Section "Journal Entry Processing", page 47
+```
+
+```
+User: Where is the student name search in Banner?
+
+Agent: [calls user_guide_ask(question="Where is the student name search?", module="student")]
+       → {answer: "Use the Person Search (SOAIDEN) form to search for students by name...",
+          retrieval_count: 3}
+
+Answer: Use the Person Search form (SOAIDEN) to find students by name.
+Enter the last name in the ID/Name Search field and press F7 to execute.
+Source: Banner Student - Use - Ellucian.pdf, Section "Searching for Records", page 12
+```
+
+### Contrast with Other Agents
+
+| Question type | Use agent | Source |
+|---|---|---|
+| "What changed in Banner 9.3.37?" | Agent 1 or Agent 8 | Release notes (`banner`) |
+| "How to restart the Banner server" | Agent 8 (SopQuery) | SOPs (`sop`) |
+| **"How do I enter a journal entry?"** | **Agent 10** | **User guide (`banner_user_guide`)** |
+| "What new features came in Banner Finance?" | Agent 1 | Release notes (`banner`) |
+
+---
+
 ## Tool Reference: API-to-Tool Mapping
 
 | Tool Name | HTTP Method | Endpoint | Agent(s) Using It |
@@ -1096,6 +1255,7 @@ Threshold of 0.010 sits safely in the middle with margin. Rounds down to nearest
 | `chat_sentiment` | POST | `/chat/sentiment` | 8 |
 | (calibration protocol) | POST | `/banner/ask` | 9 |
 | (calibration protocol) | GET | `/index/stats` | 9 |
+| `user_guide_ask` | POST | `/banner/:module/ask` (source_type=banner_user_guide) | 10 |
 
 ---
 
@@ -1115,6 +1275,7 @@ agents/
 ├── gap_analyzer.py    # Agent 6
 ├── diagnostics.py     # Agent 7
 ├── calibration.py     # Agent 9
+├── user_guide.py      # Agent 10
 └── cli.py             # Entry point: pick agent by command-line arg
 ```
 
@@ -1147,6 +1308,7 @@ def check_confidence(api_result: dict) -> str | None:
 | Diagnostics (Agent 7) | `claude-haiku-4-5` | < $0.005 |
 | Internal Banner Chatbot (Agent 8) | `claude-haiku-4-5` | < $0.002 per turn |
 | Confidence Calibration (Agent 9) | `claude-haiku-4-5` | < $0.005 per run |
+| User Guide Navigation (Agent 10) | `claude-haiku-4-5` | < $0.001 per turn |
 
 Azure OpenAI costs (embedding + chat) remain the same regardless of which Claude model is used.
 
@@ -1171,9 +1333,10 @@ tool dispatch loop and prompt logic without incurring API costs.
 
 **After the above are working:**
 
-5. **Agent 4 — Conversational**: Requires more careful session management
-6. **Agent 5 — Ingestion Orchestrator**: Useful but ingestion is currently rare
-7. **Agent 6 — Gap Analyzer**: High value for upgrade planning but complex to validate
+5. **Agent 10 — User Guide Navigation**: Low complexity, high value for onboarding new Banner users
+6. **Agent 4 — Conversational**: Requires more careful session management
+7. **Agent 5 — Ingestion Orchestrator**: Useful but ingestion is currently rare
+8. **Agent 6 — Gap Analyzer**: High value for upgrade planning but complex to validate
 
 **Primary chatbot (internal users — this is the main Botpress target):**
 

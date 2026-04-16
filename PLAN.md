@@ -315,5 +315,200 @@ re-run score distribution analysis as the index grows (new documents change scor
 - Changes to the go-omnivore-rag backend scoring model
 - Modifying Azure AI Search index configuration
 - Botpress flow changes (the `escalate` boolean drives those; logic change is transparent)
-- Adding more intent keywords or changing the 5-intent set
 - gRPC changes
+
+---
+
+## Phase E — Banner User Guide Q&A
+
+**Goal:** Let the chatbot answer "how to use Banner" questions by routing to the indexed
+user guide PDFs (`source_type=banner_user_guide`). No version/year filters needed — these
+are functional user guides, not release notes.
+
+**Backend reality (do not modify the backend):**
+- User guide PDFs sit in `data/docs/banner/<module>/use/` folders.
+- The ingest pipeline already detects `/use/` paths → tags chunks as `banner_user_guide`.
+- `POST /banner/:module/ask` (ModuleAsk handler) accepts `source_type` in the request body.
+  Passing `source_type=banner_user_guide` scopes search to user guide chunks only.
+- `/banner/student/ask` (StudentAsk handler) hardcodes `SourceTypeBannerGuide` — already works.
+
+**Available PDFs (as of 2026-04-16):**
+- `data/docs/banner/general/use/Banner General - Use - Ellucian.pdf` — General module
+- `data/docs/banner/student/use/Banner Student - Use - Ellucian.pdf` — Student module
+- `data/docs/banner/finance/use/` — Finance module (PDFs TBD)
+
+**New adapter method:**
+```go
+AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error)
+// Calls POST /banner/:module/ask with body {"question":"...","source_type":"banner_user_guide"}
+// No version_filter, no year_filter — never set them for user guide queries.
+```
+
+**New intent: `BannerUsage`** (6th intent, extends the 5-intent set)
+
+Covers questions about navigating Banner ERP — forms, fields, screens, lookups, workflows.
+Differentiates from `SopQuery` (internal IT procedures) and `BannerAdmin` (config/setup).
+
+Keyword scoring: each match = word_count × 0.3. Multi-word phrases beat SopQuery's generic
+"how to" (0.6) when more specific phrases match (e.g., "how to use" = 0.9).
+
+**New source values for `/chat/ask`:**
+- `source=user_guide` → module=General → `AskBannerGuide(ctx, msg, "general")`
+- `source=user_guide_student` → module=Student → `AskBannerGuide(ctx, msg, "student")`
+- `source=user_guide_finance` → module=Finance → `AskBannerGuide(ctx, msg, "finance")`
+  (returns 400 until finance user guide PDFs are ingested)
+
+**Intent → source routing addition:**
+`BannerUsage` → `user_guide` (default module=General)
+
+---
+
+### Tasks
+
+- [ ] **E.1 — TDD: `BannerUsage` intent keywords**
+
+  **Prompt for implementer:**
+  In `internal/intent/classifier.go`, add `BannerUsage` as a 6th intent. Add to `IntentConfig`
+  and `DefaultIntentConfig`. Keyword set (start with these, refine based on test failures):
+  ```go
+  BannerUsage: []string{
+      "how to use", "navigate banner", "banner navigation",
+      "banner form", "banner screen", "banner menu",
+      "user guide", "where do i", "look up a",
+      "what is the banner", "how do i find",
+  },
+  ```
+
+  TDD sequence:
+  1. **RED** — add tests in `internal/intent/classifier_test.go`:
+     - `"How do I navigate the Banner main menu?"` → `BannerUsage`
+     - `"Where do I find the journal entry form in Banner?"` → `BannerUsage`
+     - `"How to use the Banner Finance module"` → `BannerUsage` (not SopQuery)
+     - `"How to restart the Banner server"` → `SopQuery` (must NOT change)
+     - `"What changed in Banner Finance?"` → `BannerRelease` (must NOT change)
+  2. **GREEN** — add `BannerUsage Intent = "BannerUsage"` constant, extend `IntentConfig`,
+     add keywords to `DefaultIntentConfig`.
+  3. **REFACTOR** — check that all pre-existing intent tests still pass.
+
+  Run: `go test ./internal/intent/... -v`
+
+- [ ] **E.2 — TDD: `AskBannerGuide` adapter method**
+
+  **Prompt for implementer:**
+  In `internal/adapter/client.go`, add:
+  ```go
+  // bannerGuideAskRequest is the JSON body for /banner/:module/ask with user guide source.
+  type bannerGuideAskRequest struct {
+      Question   string `json:"question"`
+      SourceType string `json:"source_type"`
+      TopK       int    `json:"top_k,omitempty"`
+  }
+
+  // AskBannerGuide queries /banner/:module/ask scoped to banner_user_guide source type.
+  // No version or year filter — user guide docs are not versioned.
+  func (c *AdapterClient) AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error) {
+      path := fmt.Sprintf("/banner/%s/ask", strings.ToLower(module))
+      body := bannerGuideAskRequest{
+          Question:   question,
+          SourceType: "banner_user_guide",
+      }
+      // ... same POST + mapResponse pattern as AskBanner
+  }
+  ```
+
+  TDD sequence:
+  1. **RED** — in `internal/adapter/client_test.go`, add:
+     - `TestAdapterClient_AskBannerGuide_Success` — httptest server returns valid response,
+       assert `Escalate==false`, `Confidence > 0`, URL path == `/banner/general/ask`,
+       body has `source_type=banner_user_guide`, no `version_filter`/`year_filter`
+     - `TestAdapterClient_AskBannerGuide_NoResults_Escalates` — server returns
+       `retrieval_count=0`, assert `Escalate==true`
+     - `TestAdapterClient_AskBannerGuide_Module` — assert URL path uses the provided module
+       (e.g., `/banner/student/ask`)
+  2. **GREEN** — implement `AskBannerGuide`.
+  3. **REFACTOR** — extract any shared HTTP POST + mapResponse helper if >2 methods share it.
+
+  Also add `AskBannerGuide` to the `AdapterClient` interface in `api/handlers.go`.
+
+  Run: `go test ./internal/adapter/... -v`
+
+- [ ] **E.3 — TDD: `user_guide` source routing in `/chat/ask`**
+
+  **Prompt for implementer:**
+  In `api/handlers.go`:
+  1. Add `AskBannerGuide(ctx context.Context, question string, module string) (AdapterResponse, error)`
+     to the `AdapterClient` interface.
+  2. In `sourceFromIntent`, map `BannerUsage` → `"user_guide"`.
+  3. In `askHandler`, add cases:
+     ```go
+     case "user_guide":
+         resp, err = client.AskBannerGuide(r.Context(), req.Message, "general")
+     case "user_guide_student":
+         resp, err = client.AskBannerGuide(r.Context(), req.Message, "student")
+     case "user_guide_finance":
+         resp, err = client.AskBannerGuide(r.Context(), req.Message, "finance")
+     ```
+  4. Add `"user_guide"`, `"user_guide_student"`, `"user_guide_finance"` to the valid source
+     reject-list guard (they must NOT return 400).
+
+  TDD sequence:
+  1. **RED** — in `api/handlers_test.go`, add:
+     - `TestChatAsk_UserGuide_RoutesToGeneral` — POST `{source:"user_guide"}`, mock client
+       receives `AskBannerGuide` call with module="general"
+     - `TestChatAsk_UserGuide_Student` — POST `{source:"user_guide_student"}`, module="student"
+     - `TestChatAsk_UserGuide_Finance` — POST `{source:"user_guide_finance"}`, module="finance"
+     - `TestChatAsk_BannerUsageIntent_RoutesToUserGuide` — POST `{intent:"BannerUsage"}` with
+       no source field → resolved to `user_guide` → module="general"
+  2. **GREEN** — wire intent+source routing.
+  3. **REFACTOR** — ensure mock interface in test file includes `AskBannerGuide`.
+
+  Run: `go test ./api/... -v`
+
+- [ ] **E.4 — Update CLAUDE.md**
+
+  **Prompt for implementer:**
+  In `CLAUDE.md`:
+  1. Add `BannerUsage` to the intent set (extend from 5 to 6 intents):
+     ```
+     BannerUsage    → questions about navigating Banner forms, screens, fields, lookups, workflows
+     ```
+  2. Add to the intent → backend routing table:
+     ```
+     BannerUsage    → /banner/general/ask  source_type=banner_user_guide  module=General
+     ```
+  3. Add new source override values:
+     ```
+     source=user_guide         → /banner/general/ask  source_type=banner_user_guide
+     source=user_guide_student → /banner/student/ask  source_type=banner_user_guide
+     source=user_guide_finance → /banner/finance/ask  source_type=banner_user_guide
+     ```
+  4. Add note: "No version_filter or year_filter for user_guide sources — user guide PDFs
+     carry no version metadata."
+
+- [ ] **E.5 — Document Agent 10 in wiki/CLAUDE_AGENTS.md**
+
+  **Prompt for implementer:**
+  Append Agent 10 (Banner User Guide Navigation Agent) to `wiki/CLAUDE_AGENTS.md`.
+  See the Agent 10 section already added below. Add to TOC and Tool Reference table.
+
+- [ ] **E.6 — Update wiki/CHATBOT.md**
+
+  **Prompt for implementer:**
+  In `wiki/CHATBOT.md`:
+  1. Add `BannerUsage` to the intent set table.
+  2. Add `user_guide`, `user_guide_student`, `user_guide_finance` to the source override table.
+  3. Add a new section "## User Guide Q&A" describing when to use `user_guide` vs `banner`
+     and the no-version-filter rule.
+
+---
+
+### Phase E Acceptance Criteria
+
+- [ ] `go test ./... -v` passes with 0 failures
+- [ ] `intent="BannerUsage"` + no source → routes to `AskBannerGuide(..., "general")`
+- [ ] `source="user_guide_student"` → routes to `AskBannerGuide(..., "student")`
+- [ ] `source="user_guide"` request body has `source_type=banner_user_guide`, no `version_filter`
+- [ ] "How do I navigate the Banner main menu?" → intent `BannerUsage` (not SopQuery)
+- [ ] "How to restart the Banner server" → intent `SopQuery` (unchanged)
+- [ ] CLAUDE.md documents 6th intent and 3 new source values
+- [ ] Agent 10 documented in CLAUDE_AGENTS.md

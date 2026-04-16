@@ -12,12 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"go-omnivore-rag/config"
 	"go-omnivore-rag/internal/azure"
 	"go-omnivore-rag/internal/ingest"
 	"go-omnivore-rag/internal/rag"
 	"go-omnivore-rag/internal/websearch"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Handler holds shared dependencies injected at startup.
@@ -771,7 +772,7 @@ func (h *Handler) StudentIngest(c *gin.Context) {
 	var req ingestRequest
 	_ = c.ShouldBindJSON(&req)
 	if req.DocsPath == "" {
-		req.DocsPath = "data/docs/banner/student/usage"
+		req.DocsPath = "data/docs/banner/student/use"
 	}
 	if req.PagesPerBatch == 0 {
 		req.PagesPerBatch = 10

@@ -179,13 +179,13 @@ Key fields to log on every RAG call:
 Azure OpenAI returns token counts in every response. Log them to track cost per endpoint.
 
 ```go
-// internal/azure/openai.go — already returns usage, just needs logging
+// internal/azure/openai.go — already returns use, just needs logging
 type chatResponse struct {
     Usage struct {
         PromptTokens     int `json:"prompt_tokens"`
         CompletionTokens int `json:"completion_tokens"`
         TotalTokens      int `json:"total_tokens"`
-    } `json:"usage"`
+    } `json:"use"`
     // ...
 }
 ```
