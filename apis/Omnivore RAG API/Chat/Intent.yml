@@ -1,0 +1,21 @@
+info:
+  name: Intent
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{chat_url}}/chat/intent"
+  body:
+    type: json
+    data: |-
+      {
+        "message": "What changed in Banner General 9.3.37?"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

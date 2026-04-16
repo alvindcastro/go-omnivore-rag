@@ -1,0 +1,23 @@
+info:
+  name: Ask
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{chat_url}}/chat/ask"
+  body:
+    type: json
+    data: |-
+      {
+        "message": "What changed in Banner General 9.3.37?",
+        "session_id": "test-session-1",
+        "intent": "BannerRelease"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

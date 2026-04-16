@@ -10,9 +10,11 @@ http:
     type: json
     data: |-
       {
-        "docs_path": "data/docs/banner/general/releases",
+        "docs_path": "data/docs/banner/general/use",
         "overwrite": false,
-        "pages_per_batch": 10
+        "pages_per_batch": 10,
+        "start_page": 0,
+        "end_page": 0
       }
   auth: inherit
 

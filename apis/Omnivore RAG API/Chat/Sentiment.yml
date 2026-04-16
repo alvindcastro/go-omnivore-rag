@@ -1,0 +1,21 @@
+info:
+  name: Sentiment
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: "{{chat_url}}/chat/sentiment"
+  body:
+    type: json
+    data: |-
+      {
+        "message": "I've been waiting for hours and nothing works!"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

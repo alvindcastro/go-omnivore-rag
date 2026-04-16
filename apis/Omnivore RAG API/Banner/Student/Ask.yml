@@ -13,7 +13,6 @@ http:
         "question": "What is a CRN in Banner Student?",
         "top_k": 5,
         "version_filter": "",
-        "module_filter": "Student",
         "section_filter": "",
         "mode": "local"
       }

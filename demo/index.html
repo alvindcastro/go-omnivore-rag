@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Banner Admin Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f9;
+      color: #222;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #003366;
+      color: #fff;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 64px;
+    }
+
+    header .logo {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    header .logo span {
+      color: #66aaff;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #0066CC;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    nav ul li a {
+      display: block;
+      color: #fff;
+      text-decoration: none;
+      padding: 0.75rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    nav ul li a:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* ── Hero callout ── */
+    .hero {
+      background: linear-gradient(135deg, #003366 0%, #0066CC 100%);
+      color: #fff;
+      text-align: center;
+      padding: 3.5rem 2rem 3rem;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .callout {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 6px;
+      margin-top: 1.5rem;
+      padding: 0.65rem 1.25rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .callout::before {
+      content: "💬 ";
+    }
+
+    /* ── Main content ── */
+    main {
+      max-width: 1100px;
+      margin: 2.5rem auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      color: #003366;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      font-size: 0.88rem;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .card a {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #0066CC;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .card a:hover { text-decoration: underline; }
+
+    /* ── Sample questions ── */
+    .questions-section {
+      max-width: 1100px;
+      margin: 0 auto 2.5rem;
+      padding: 0 2rem;
+    }
+
+    .questions-section h2 {
+      font-size: 1rem;
+      color: #003366;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .questions-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .q-chip {
+      background: #fff;
+      border: 1px solid #0066CC;
+      color: #0066CC;
+      border-radius: 20px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .q-chip:hover {
+      background: #0066CC;
+      color: #fff;
+    }
+
+    /* ── Footer ── */
+    footer {
+      background: #003366;
+      color: rgba(255, 255, 255, 0.65);
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.8rem;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Ellucian <span>Banner</span> Admin Assistant</div>
+  </header>
+
+  <!-- Navigation -->
+  <nav>
+    <ul>
+      <li><a href="#">Upgrades</a></li>
+      <li><a href="#">Server SOPs</a></li>
+      <li><a href="#">Version Info</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero / callout -->
+  <section class="hero">
+    <h1>Banner Admin Assistant</h1>
+    <p>Get instant answers on Banner upgrades, server SOPs, and release version details — powered by your own documentation.</p>
+    <div class="callout">
+      Ask our virtual assistant 24/7 — powered by Banner documentation
+    </div>
+  </section>
+
+  <!-- Quick-link cards -->
+  <main>
+    <div class="card">
+      <h2>Banner Upgrades</h2>
+      <p>Ask about what changed in a release, breaking changes, compatibility notes, and required action items for any Banner version.</p>
+      <a href="#">Browse Release Notes &rarr;</a>
+    </div>
+    <div class="card">
+      <h2>Server Restart SOP</h2>
+      <p>Look up the standard operating procedure for restarting Banner application servers, including pre-checks and rollback steps.</p>
+      <a href="#">Browse SOPs &rarr;</a>
+    </div>
+    <div class="card">
+      <h2>Banner Version Info</h2>
+      <p>Find the current Banner version number, module-level versions, and upgrade history across Student, Finance, and General.</p>
+      <a href="#">View Version History &rarr;</a>
+    </div>
+    <div class="card">
+      <h2>Contact &amp; Escalation</h2>
+      <p>Reach the Banner admin team for issues the assistant can't resolve with high confidence.</p>
+      <a href="#">Contact Support &rarr;</a>
+    </div>
+  </main>
+
+  <!-- Sample questions -->
+  <section class="questions-section">
+    <h2>Try asking</h2>
+    <div class="questions-list">
+      <span class="q-chip">What changed in Banner 9.3.37?</span>
+      <span class="q-chip">What is the SOP for restarting a Banner application server?</span>
+      <span class="q-chip">What is the current Banner version number?</span>
+      <span class="q-chip">Are there any breaking changes in the latest release?</span>
+      <span class="q-chip">What Banner modules are affected by the 9.4 upgrade?</span>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2025 Banner Admin Team &mdash; Powered by go-omnivore-rag + Botpress
+  </footer>
+
+  <!--
+    ── Botpress Webchat Widget ──────────────────────────────────────────────────
+    Replace YOUR_BOT_ID with the real Botpress shareable bot ID once deployed.
+    Set RAG_ADAPTER_URL env var in Botpress Cloud → your adapter URL.
+    ──────────────────────────────────────────────────────────────────────────── -->
+  <script src="https://cdn.botpress.cloud/webchat/v3.6/inject.js"></script>
+  <script src="https://files.bpcontent.cloud/2026/04/16/04/20260416040523-XQHQD1JB.js" defer></script>
+
+</body>
+</html>

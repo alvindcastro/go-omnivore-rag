@@ -199,6 +199,311 @@
                 }
             }
         },
+        "/banner/{module}/ask": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "banner"
+                ],
+                "summary": "Ask a question scoped to a specific Banner module",
+                "description": "Supported module values: finance, student, hr, financial-aid, ar, general",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Banner module name",
+                        "name": "module",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Question payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.moduleAskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.AskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/student/ask": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "student"
+                ],
+                "summary": "Ask a question against Banner Student user guide",
+                "parameters": [
+                    {
+                        "description": "Question payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.studentAskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.AskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/student/cross-reference": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "student"
+                ],
+                "summary": "Analyse how a Banner release change affects Student user guide procedures",
+                "parameters": [
+                    {
+                        "description": "Cross-reference request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.CrossReferenceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.CrossReferenceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/student/ingest": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "student"
+                ],
+                "summary": "Ingest Banner Student user guide PDFs into the search index",
+                "parameters": [
+                    {
+                        "description": "Ingest options",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.bannerIngestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/student/lookup": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "student"
+                ],
+                "summary": "Look up a Banner Student concept or feature definition",
+                "parameters": [
+                    {
+                        "description": "Lookup request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.LookupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.LookupResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/banner/student/procedure": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "student"
+                ],
+                "summary": "Get step-by-step instructions for a Banner Student task",
+                "parameters": [
+                    {
+                        "description": "Procedure request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rag.ProcedureRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/rag.ProcedureResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/banner/summarize/actions": {
             "post": {
                 "consumes": [
@@ -454,6 +759,168 @@
                 }
             }
         },
+        "/chat/ask": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Route a student message to Banner or SOP backend based on intent/source",
+                "parameters": [
+                    {
+                        "description": "Chat message payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.chatAskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/adapter.AdapterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/intent": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Classify the intent of a student message (6 intents)",
+                "parameters": [
+                    {
+                        "description": "Message to classify",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.messageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.intentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/chat/sentiment": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chat"
+                ],
+                "summary": "Analyze the sentiment of a student message",
+                "parameters": [
+                    {
+                        "description": "Message to analyze",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.messageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.sentimentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/debug/chunks": {
             "get": {
                 "produces": [
@@ -686,6 +1153,45 @@
         }
     },
     "definitions": {
+        "adapter.AdapterResponse": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "description": "Confidence score from sources[0].score (0–1); 0.0 if no sources returned",
+                    "type": "number"
+                },
+                "escalate": {
+                    "description": "true when confidence < 0.5 or retrieval_count == 0",
+                    "type": "boolean"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/adapter.AdapterSource"
+                    }
+                }
+            }
+        },
+        "adapter.AdapterSource": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "sop_number": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "api.bannerAskRequest": {
             "type": "object",
             "required": [
@@ -750,6 +1256,133 @@
                 }
             }
         },
+        "api.moduleAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "mode": {
+                    "description": "\"local\" (default) | \"web\" | \"hybrid\" | \"auto\"",
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "section_filter": {
+                    "type": "string"
+                },
+                "source_type": {
+                    "description": "Optional — narrows to a specific doc type",
+                    "type": "string"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                },
+                "year_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.chatAskRequest": {
+            "type": "object",
+            "required": [
+                "message",
+                "session_id"
+            ],
+            "properties": {
+                "intent": {
+                    "description": "Optional intent hint: RegistrationBanner | FinanceBanner | TranscriptSop | HoldsSop | ReleaseSummary | General",
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Optional routing override: general | student | finance | sop | auto",
+                    "type": "string",
+                    "enum": [
+                        "general",
+                        "student",
+                        "finance",
+                        "sop",
+                        "auto"
+                    ]
+                }
+            }
+        },
+        "api.intentResponse": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "description": "Normalized score 0–1",
+                    "type": "number"
+                },
+                "intent": {
+                    "description": "One of RegistrationBanner | FinanceBanner | TranscriptSop | HoldsSop | ReleaseSummary | General",
+                    "type": "string"
+                }
+            }
+        },
+        "api.messageRequest": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.sentimentResponse": {
+            "type": "object",
+            "properties": {
+                "score": {
+                    "description": "Normalized score 0–1",
+                    "type": "number"
+                },
+                "sentiment": {
+                    "description": "One of Positive | Neutral | Frustrated",
+                    "type": "string"
+                }
+            }
+        },
+        "api.studentAskRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "mode": {
+                    "description": "\"local\" (default) | \"web\" | \"hybrid\" | \"auto\"",
+                    "type": "string"
+                },
+                "module_filter": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "section_filter": {
+                    "type": "string"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                }
+            }
+        },
         "api.sopAskRequest": {
             "type": "object",
             "required": [
@@ -793,6 +1426,53 @@
                 }
             }
         },
+        "rag.CrossReferenceRequest": {
+            "type": "object",
+            "required": [
+                "question"
+            ],
+            "properties": {
+                "module_filter": {
+                    "type": "string"
+                },
+                "question": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.CrossReferenceResponse": {
+            "type": "object",
+            "properties": {
+                "analysis": {
+                    "type": "string"
+                },
+                "guide_sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                },
+                "question": {
+                    "type": "string"
+                },
+                "release_sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                },
+                "retrieval_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "rag.FullSummaryResponse": {
             "type": "object",
             "properties": {
@@ -824,6 +1504,94 @@
                     }
                 },
                 "what_changed": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.LookupRequest": {
+            "type": "object",
+            "required": [
+                "term"
+            ],
+            "properties": {
+                "module_filter": {
+                    "type": "string"
+                },
+                "section_filter": {
+                    "type": "string"
+                },
+                "term": {
+                    "type": "string",
+                    "minLength": 2
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.LookupResponse": {
+            "type": "object",
+            "properties": {
+                "definition": {
+                    "type": "string"
+                },
+                "retrieval_count": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                },
+                "term": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.ProcedureRequest": {
+            "type": "object",
+            "required": [
+                "topic"
+            ],
+            "properties": {
+                "module_filter": {
+                    "type": "string"
+                },
+                "section_filter": {
+                    "type": "string"
+                },
+                "topic": {
+                    "type": "string",
+                    "minLength": 5
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "version_filter": {
+                    "type": "string"
+                }
+            }
+        },
+        "rag.ProcedureResponse": {
+            "type": "object",
+            "properties": {
+                "procedure": {
+                    "type": "string"
+                },
+                "retrieval_count": {
+                    "type": "integer"
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rag.SourceChunk"
+                    }
+                },
+                "topic": {
                     "type": "string"
                 }
             }

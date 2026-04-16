@@ -44,9 +44,9 @@ func isSopDocument(filePath string) bool {
 	return strings.Contains(normalized, "/docs/sop/")
 }
 
-// isUserGuideDocument reports whether a file path is under a usage/ folder,
+// isUserGuideDocument reports whether a file path is under a use/ folder,
 // indicating a Banner functional user guide rather than a release note.
 func isUserGuideDocument(filePath string) bool {
 	normalized := filepath.ToSlash(filePath)
-	return strings.Contains(normalized, "/usage/")
+	return strings.Contains(normalized, "/use/")
 }

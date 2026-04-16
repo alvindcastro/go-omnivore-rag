@@ -1,19 +1,18 @@
 info:
-  name: Ask (Release Notes)
+  name: Ask (User Guide)
   type: http
-  seq: 1
+  seq: 6
 
 http:
   method: POST
-  url: "{{base_url}}/banner/ask"
+  url: "{{base_url}}/banner/student/ask"
   body:
     type: json
     data: |-
       {
-        "question": "What changed in Banner General 9.3.37.2?",
+        "question": "Where is the student name search form in Banner?",
         "top_k": 5,
-        "module_filter": "General",
-        "mode": "local"
+        "source_type": "banner_user_guide"
       }
   auth: inherit
 

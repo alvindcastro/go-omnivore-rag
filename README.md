@@ -1,150 +1,84 @@
 # go-omnivore-rag
 
-> **Educational Project** — Demonstrates how to build an Internal Knowledge Assistant (RAG System) using Go and Microsoft Azure AI services. Intended as a learning exercise for RAG architecture, Azure OpenAI, Go REST APIs, and gRPC.
->
-> You will need your own Azure subscription to use with real documents.
+> **Educational project** — RAG system + Botpress chatbot over Ellucian Banner ERP documentation, built with Go and Azure AI services.
 
 ---
 
-## What This Project Does
+## What this is
 
-An AI-powered assistant that helps IT staff and functional analysts answer questions about Ellucian Banner ERP upgrades and internal Standard Operating Procedures (SOPs). Instead of manually reading through lengthy PDFs and Word documents, you can:
+Two things in one repo:
 
-- **Ask natural language questions** — "What are the prerequisites for Banner General 9.3.37.2?" or "How do I start the Axiom server?"
-- **Get structured summaries** — Breaking changes, action items, compatibility requirements
-- **Filter by module, version, and year** — Scope Banner answers to exactly what you need
-- **Browse all indexed SOPs** — List every SOP with its title and chunk count
-- **Ingest any supported document** — Drop it in the right folder and index it instantly
+1. **go-omnivore-rag** — Go REST + gRPC backend that ingests Banner release-note PDFs, SOPs, and user-guide PDFs into Azure AI Search and answers questions over them using GPT-4o-mini.
+2. **Ask Banner adapter** (`internal/adapter`, `internal/intent`, `internal/sentiment`, `api/`) — thin Botpress adapter that exposes `/chat/ask`, `/chat/intent`, `/chat/sentiment` and routes to the right backend endpoint based on intent.
 
 ---
 
 ## Architecture
 
 ```
-Banner PDFs / SOP .docx files / Student User Guide PDFs
-        │
-        ▼
-  POST /banner/ingest             ← PDF → pages → chunks → embed → index
-  POST /banner/student/ingest     ← Student guide PDFs → chunks → embed → index
-  POST /sop/ingest                ← DOCX → paragraphs → sections → embed → index
-        │
-        ▼
-  Azure AI Search Index           ← Vector + BM25 hybrid search (source_type filter)
-        │
-        ▼
-  POST /banner/ask                ← Question → embed → search[banner] → GPT-4o-mini → answer
-  POST /banner/{module}/ask       ← Same, scoped to a module (finance, hr, student, etc.)
-  POST /banner/student/ask        ← Question → embed → search[banner_user_guide] → answer
-  POST /banner/student/procedure  ← Topic → step-by-step instructions from user guide
-  POST /banner/student/lookup     ← Term → definition from user guide
-  POST /banner/student/cross-reference ← Change impact analysis (release notes ↔ user guide)
-  POST /sop/ask                   ← Question → embed → search[sop] → GPT-4o-mini → answer
-  POST /banner/summarize/full     ← Retrieve chunks → GPT-4o-mini → structured summary
+[Botpress Cloud Widget]
+        ↓
+[Botpress Flow — Execute Code nodes]
+        ↓  axios → ask-banner.fly.dev
+[Ask Banner Adapter]
+    ├── POST /chat/sentiment  → rule-based frustration pre-filter
+    ├── POST /chat/intent     → keyword classifier (6 intents)
+    └── POST /chat/ask        → routes to backend by intent/source
+                ↓
+[go-omnivore-rag — :8000]
+    ├── /banner/ask           module_filter=General|Finance  (release notes)
+    ├── /banner/general/ask   source_type=banner_user_guide
+    ├── /banner/student/ask   source_type=banner_user_guide
+    ├── /banner/finance/ask   source_type=banner_user_guide
+    ├── /sop/ask
+    └── /banner/summarize/full
+                ↓
+[Azure OpenAI GPT-4o-mini + Azure AI Search hybrid]
 ```
 
-**Stack:**
-- **Go 1.24+** with Gin web framework (HTTP) and gRPC
-- **Azure OpenAI** — GPT-4o-mini (chat) + text-embedding-ada-002 (embeddings)
-- **Azure AI Search** — Hybrid vector + BM25 keyword search, single index with `source_type` filtering
-- **Azure Blob Storage** — Optional Banner PDF source storage
-- **Protocol Buffers + buf** — gRPC service definitions and code generation
+**Stack:** Go 1.24 · Gin · Azure OpenAI · Azure AI Search · Azure Blob Storage · Protocol Buffers + buf
 
 ---
 
 ## Prerequisites
 
-- **Go 1.24+** — [go.dev/dl](https://go.dev/dl)
-- **buf** (for gRPC code generation) — [buf.build/docs/installation](https://buf.build/docs/installation)
-- Azure subscription — [portal.azure.com](https://portal.azure.com)
+- Go 1.24+
+- Azure subscription (OpenAI + AI Search; Blob Storage optional)
+- buf — for gRPC code generation only
 
 ---
 
-## Azure Services Required
-
-| Service | Tier | Purpose |
-|---|---|---|
-| Azure OpenAI | Standard S0 | GPT-4o-mini (chat) + text-embedding-ada-002 (embeddings) |
-| Azure AI Search | Free | Vector + hybrid search index |
-| Azure Blob Storage | Standard LRS | Optional — store Banner PDFs in the cloud |
-
-**Estimated cost for MVP/learning:** ~$1–5/month
-
-**Azure OpenAI** (Canada East)
-```
-Name: omnivore-rag-openai
-Tier: Standard S0
-Deployments:
-  - gpt-4o-mini           (version 2024-07-18, 10K TPM)
-  - text-embedding-ada-002 (version 2,           10K TPM)
-```
-
-**Azure AI Search** (Canada Central)
-```
-Name: omnivore-rag-search
-Tier: Free
-```
-
-**Azure Blob Storage** (Canada Central, optional)
-```
-Name: omnivoreragstorage
-Redundancy: LRS
-Container: banner-release-notes (Private)
-```
-
----
-
-## Setup
-
-### 1. Clone and install
+## Quick start
 
 ```bash
 git clone https://github.com/<your-username>/go-omnivore-rag.git
 cd go-omnivore-rag
 go mod tidy
+cp .env.example .env          # fill in Azure credentials
+go generate ./internal/api/   # generate Swagger docs
+go run cmd/main.go            # HTTP on :8000
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-# Fill in your Azure credentials — see .env Configuration section below
+First run — create the index and ingest:
+```
+POST /index/create
+POST /banner/ingest
+POST /sop/ingest
 ```
 
-### 3. Generate Swagger docs
+> Full setup walkthrough: [wiki/RUNBOOK.md](wiki/RUNBOOK.md)
 
-The `docs/` directory is gitignored. Generate it once before starting the server:
+---
 
-```bash
-go generate ./internal/api/
-```
+## Azure services
 
-### 4. Run the HTTP server
+| Service | Tier | Purpose |
+|---|---|---|
+| Azure OpenAI | Standard S0 | GPT-4o-mini (chat) + text-embedding-ada-002 (embeddings) |
+| Azure AI Search | Free | Hybrid vector + BM25 index |
+| Azure Blob Storage | Standard LRS | Optional Banner PDF source |
 
-```bash
-go run cmd/main.go
-# Listening on :8000
-```
-
-### 5. Create the search index
-
-```
-POST http://localhost:8000/index/create
-```
-
-### 6. Add documents and ingest
-
-Drop your files into the right folder:
-```
-data/docs/banner/general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
-data/docs/sop/SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
-data/docs/sop/SOP154 - Procedure - Start, Stop Axiom.docx
-```
-
-Then ingest:
-```
-POST http://localhost:8000/banner/ingest
-POST http://localhost:8000/sop/ingest
-```
+Estimated cost for dev/demo: ~$1–5/month. Use 10K TPM limits on both deployments.
 
 ---
 
@@ -152,542 +86,183 @@ POST http://localhost:8000/sop/ingest
 
 ### System
 
-| Method | Endpoint | Description |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/health` | Service health and model info |
-| GET | `/index/stats` | Document count in search index |
-| POST | `/index/create` | Create or recreate the search index |
-| GET | `/debug/chunks` | List indexed chunks (top 50) |
+| GET | `/health` | Health + model info |
+| GET | `/index/stats` | Chunk count in index |
+| POST | `/index/create` | Create/recreate search index |
+| GET | `/debug/chunks` | List top 50 indexed chunks |
 
 ### Banner
 
-| Method | Endpoint | Description |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/banner/ask` | Ask a question about Banner release notes (all modules) |
-| POST | `/banner/{module}/ask` | Ask scoped to a module — `finance`, `hr`, `student`, `financial-aid`, `ar`, `general` |
+| POST | `/banner/ask` | Q&A over all Banner release notes |
+| POST | `/banner/{module}/ask` | Module-scoped Q&A — `general`, `finance`, `student`, `hr`, `ar`, `financial-aid` |
 | POST | `/banner/ingest` | Ingest PDFs from `data/docs/banner` |
-| GET | `/banner/blob/list` | List PDFs in Azure Blob container |
+| GET | `/banner/blob/list` | List PDFs in Azure Blob |
 | POST | `/banner/blob/sync` | Download from Blob and ingest |
-| POST | `/banner/summarize/changes` | What changed / new features |
-| POST | `/banner/summarize/breaking` | Breaking changes and deprecations |
-| POST | `/banner/summarize/actions` | Action items IT staff must perform |
-| POST | `/banner/summarize/compatibility` | Version and compatibility requirements |
-| POST | `/banner/summarize/full` | All four topics in one response |
+| POST | `/banner/summarize/full` | Structured summary: changes, breaking, actions, compatibility |
 
-**Ask request** (`/banner/ask`):
-```json
-{
-  "question": "What are the prerequisites for Banner General 9.3.37.2?",
-  "top_k": 5,
-  "version_filter": "9.3.37.2",
-  "module_filter": "General",
-  "year_filter": "2026",
-  "mode": "local"
-}
-```
-
-All filter fields are optional. `mode` options: `"local"` (default, Azure AI Search only), `"web"` (Tavily web search scoped to Ellucian domains), `"hybrid"` (both merged), `"auto"` (system picks based on local retrieval confidence).
-
-**Module-scoped ask request** (`/banner/{module}/ask`):
-
-The module is taken from the URL path — e.g. `POST /banner/finance/ask`. The body omits `module_filter`.
-
-```json
-{
-  "question": "How do I close a fiscal year in Banner Finance?",
-  "top_k": 5,
-  "version_filter": "",
-  "year_filter": "",
-  "section_filter": "",
-  "source_type": "",
-  "mode": "auto"
-}
-```
-
-`section_filter` narrows results to a specific section heading. `source_type` optionally constrains to a specific document type (`"banner"`, `"banner_user_guide"`, `"sop"`).
-
-**Ingest request** (`/banner/ingest`):
-```json
-{
-  "docs_path": "data/docs/banner",
-  "overwrite": false,
-  "pages_per_batch": 10
-}
-```
-
-**Summarize request:**
-```json
-{
-  "version": "9.3.37.2",
-  "module": "General",
-  "top_k": 20
-}
-```
+Key request fields for `/banner/ask`: `question` (required), `module_filter`, `version_filter`, `year_filter`, `top_k`, `mode` (`local`/`web`/`hybrid`/`auto`).
 
 ### Banner Student
 
-| Method | Endpoint | Description |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/banner/student/ask` | Ask a question against the Banner Student user guide |
-| POST | `/banner/student/ingest` | Ingest Student user guide PDFs from `data/docs/banner/student/usage` |
-| POST | `/banner/student/procedure` | Get step-by-step instructions for a Student task |
-| POST | `/banner/student/lookup` | Look up a concept or feature definition from the user guide |
-| POST | `/banner/student/cross-reference` | Analyse how a release note change affects Student guide procedures |
-
-**Student ask request** (`/banner/student/ask`):
-```json
-{
-  "question": "What is a CRN in Banner Student?",
-  "top_k": 5,
-  "version_filter": "",
-  "module_filter": "Student",
-  "section_filter": "",
-  "mode": "local"
-}
-```
-
-**Procedure request** (`/banner/student/procedure`):
-```json
-{
-  "topic": "How do I register a student for a course?",
-  "top_k": 5,
-  "module_filter": "Student",
-  "section_filter": ""
-}
-```
-
-**Lookup request** (`/banner/student/lookup`):
-```json
-{
-  "term": "CRN",
-  "top_k": 5,
-  "module_filter": "Student"
-}
-```
-
-**Cross-reference request** (`/banner/student/cross-reference`):
-```json
-{
-  "question": "How does the registration change in 9.3.37.2 affect the add/drop procedure?",
-  "top_k": 5,
-  "version_filter": "9.3.37.2",
-  "module_filter": "Student"
-}
-```
+| POST | `/banner/student/ask` | Q&A over Student user guide |
+| POST | `/banner/student/ingest` | Ingest Student user guide PDFs |
+| POST | `/banner/student/procedure` | Step-by-step instructions for a task |
+| POST | `/banner/student/lookup` | Definition lookup from user guide |
+| POST | `/banner/student/cross-reference` | How a release change affects guide procedures |
 
 ### SOP
 
-| Method | Endpoint | Description |
+| Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/sop` | List all indexed SOPs |
-| POST | `/sop/ask` | Ask a question about SOPs |
+| POST | `/sop/ask` | Q&A over SOPs |
 | POST | `/sop/ingest` | Ingest `.docx` files from `data/docs/sop` |
 
-**Ask request:**
-```json
-{
-  "question": "How do I stop the Axiom server?",
-  "top_k": 5
-}
-```
+### Chatbot adapter
 
-**Ingest request:**
-```json
-{
-  "overwrite": false
-}
-```
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/chat/ask` | Main Q&A — routes by intent/source, returns `answer`, `confidence`, `escalate`, `sources` |
+| POST | `/chat/intent` | Classify message → one of 6 intents |
+| POST | `/chat/sentiment` | Score message frustration (0–1) |
+
+---
+
+## Chatbot: intent routing
+
+| Intent | Source field | Backend | Notes |
+|---|---|---|---|
+| `BannerRelease` | `banner` | `/banner/ask` `module_filter=General` | Release notes |
+| `BannerFinance` | `finance` | `/banner/ask` `module_filter=Finance` | Finance release notes |
+| `SopQuery` | `sop` | `/sop/ask` | SOPs |
+| `BannerAdmin` | `banner` | `/banner/ask` `module_filter=General` | Admin/config questions |
+| `BannerUsage` | `user_guide` | `/banner/general/ask` `source_type=banner_user_guide` | How to use Banner |
+| `General` | `banner` | `/banner/ask` `module_filter=General` | Fallback |
+
+`source` field in `/chat/ask` overrides intent routing. Valid values: `banner`, `finance`, `sop`, `user_guide`, `user_guide_student`, `user_guide_finance`, `auto`.
+
+> **Confidence note:** `sources[0].score` is the raw Azure AI Search hybrid score. Valid answers typically score 0.01–0.05 — this is normal, not low quality. See [wiki/RUNBOOK.md](wiki/RUNBOOK.md) § Score Distribution.
+
+---
+
+## Testing the bot
+
+| Method | How |
+|---|---|
+| Botpress Studio Preview | Open [Studio](https://studio.botpress.cloud/3b6cf557-bc0a-4197-b16a-29c79706809f/flows/wf-main) → click Preview — tests draft, no publish needed |
+| demo/index.html | Open in browser — tests last published version |
+| curl adapter | `POST http://localhost:8080/chat/ask` with `{"message":"...","session_id":"test-1"}` |
+
+See [wiki/BOTPRESS-SETUP.md](wiki/BOTPRESS-SETUP.md) for full flow setup and Execute Code snippets.
 
 ---
 
 ## Swagger UI
 
-Interactive API docs are auto-generated from handler comments using [swaggo/swag](https://github.com/swaggo/swag) and served at `/docs`.
-
-> **Note:** The `docs/` directory is gitignored and must be generated locally before the UI is available.
-
-**1. Generate the docs** (no CLI install needed — uses `go run`):
 ```bash
-go generate ./internal/api/
+go generate ./internal/api/   # generates docs/ (gitignored)
+# then: http://localhost:8000/docs/index.html
 ```
 
-**2. Start the server and open:**
-```
-http://localhost:8000/docs/index.html
-```
-
-Regenerate any time you pull changes to `internal/api/handlers.go`.
+Bruno collection at `apis/Omnivore RAG API/` — set `base_url=http://localhost:8000`.
 
 ---
 
-## Bruno API Collection
-
-Recommended tool for manual testing: [usebruno.com](https://www.usebruno.com)
-
-Open the `apis/Omnivore RAG API/` folder in Bruno. Set the `base_url` environment variable to `http://localhost:8000`.
-
-```
-Omnivore RAG API/
-├── System/
-│   ├── Health Check         GET  /health
-│   ├── Index Stats          GET  /index/stats
-│   └── Create Index         POST /index/create
-├── Banner/
-│   ├── Ask                  POST /banner/ask
-│   ├── Ingest               POST /banner/ingest
-│   ├── Blob List            GET  /banner/blob/list
-│   ├── Blob Sync            POST /banner/blob/sync
-│   ├── Summarize What Changed        POST /banner/summarize/changes
-│   ├── Summarize Breaking Changes    POST /banner/summarize/breaking
-│   ├── Summarize Action Items        POST /banner/summarize/actions
-│   ├── Summarize Compatibility       POST /banner/summarize/compatibility
-│   ├── Summarize Full                POST /banner/summarize/full
-│   ├── General/
-│   │   └── Ask              POST /banner/general/ask
-│   ├── Finance/
-│   │   └── Ask              POST /banner/finance/ask
-│   ├── HR/
-│   │   └── Ask              POST /banner/hr/ask
-│   ├── Financial Aid/
-│   │   └── Ask              POST /banner/financial-aid/ask
-│   ├── AR/
-│   │   └── Ask              POST /banner/ar/ask
-│   └── Student/
-│       ├── Ask              POST /banner/student/ask
-│       ├── Ingest           POST /banner/student/ingest
-│       ├── Procedure        POST /banner/student/procedure
-│       ├── Lookup           POST /banner/student/lookup
-│       └── Cross Reference  POST /banner/student/cross-reference
-├── SOP/
-│   ├── List SOPs            GET  /sop
-│   ├── Ask                  POST /sop/ask
-│   └── Ingest               POST /sop/ingest
-└── Debug/
-    └── List Chunks          GET  /debug/chunks
-```
-
----
-
-## Working with Documents
-
-### Folder Structure
+## Document ingestion
 
 ```
 data/docs/
-├── banner/                          # Ellucian Banner release notes
-│   ├── general/
-│   │   └── 2026/february/
-│   │       └── Banner_General_9.3.37.2_ReleaseNotes.pdf
-│   ├── finance/
-│   │   └── 2026/february/
-│   │       └── Banner_Finance_9.3.22_ReleaseNotes.pdf
-│   └── student/
-│       └── 2026/february/
-│           └── Banner_Student_9.39_ReleaseNotes.pdf
-└── sop/                             # Standard Operating Procedures
+├── banner/
+│   ├── general/2026/february/Banner_General_9.3.37.2_ReleaseNotes.pdf
+│   ├── finance/2026/february/Banner_Finance_9.3.22_ReleaseNotes.pdf
+│   └── student/2026/february/Banner_Student_9.39_ReleaseNotes.pdf
+└── sop/
     ├── SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
     └── SOP154 - Procedure - Start, Stop Axiom.docx
 ```
 
-**Supported file types:** `.pdf`, `.txt`, `.md`, `.docx`
-
-> Legacy `.doc` files are not supported. Save them as `.docx` before ingesting.
-
-### SOP Ingestion Pipeline
-
-Files under `data/docs/sop/` go through a dedicated section-aware pipeline instead of the standard page-based chunker.
-
-**Filename convention** (required):
-```
-SOP<number> - <Title>.docx
-SOP122 - Smoke Test and Sanity Test Post Banner Upgrade.docx
-SOP154 - Procedure - Start, Stop Axiom.docx
-```
-
-Files that don't match the `SOP<N> - <Title>` pattern are skipped with a warning.
-
-**How chunking works:**
-
-Each section heading opens a new chunk. Every chunk is prefixed with a breadcrumb so the model always knows which SOP and section it came from:
-
-```
-[SOP 154 — Procedure - Start, Stop Axiom] > 6. Detailed Procedures > 6.2 Stopping Axiom
-
-Notify the team and/or clients.
-Stop Windows Services in the following order: ...
-```
-
-Two heading styles are handled automatically:
-- **Styled** — `Heading1` / `Heading2` / `Heading3` / `Heading4` Word paragraph styles
-- **Plain** — `Normal` paragraphs with numbered prefixes like `6.2 Stopping Axiom`
-
-Cover-page content (company info, change history tables, table of contents) is stripped before chunking. Chunks are indexed with `source_type: "sop"` and are fully filterable from Banner content.
+Supported: `.pdf`, `.txt`, `.md`, `.docx`. SOPs must follow the `SOP<N> - <Title>.docx` naming convention.
 
 ---
 
 ## gRPC
 
-The project exposes the same capabilities over gRPC alongside the HTTP API. Both servers run independently and share the same `config`, `azure`, `ingest`, and `rag` packages.
-
-```
-HTTP  → :8000  (Gin)       — REST / JSON
-gRPC  → :9000  (net/grpc)  — Protocol Buffers
-```
-
-### Services
-
-| Service | Methods |
-|---|---|
-| `SystemService` | `Health`, `IndexStats`, `CreateIndex` |
-| `BannerService` | `Ask`, `Ingest`, `BlobList`, `BlobSync`, `SummarizeChanges`, `SummarizeBreaking`, `SummarizeActions`, `SummarizeCompatibility`, `SummarizeFull` |
-| `SOPService` | `Ask`, `Ingest`, `List` |
-
-Proto definitions live in `proto/omnivore/v1/`.
-
-### Install buf
-
-```bash
-# macOS
-brew install bufbuild/buf/buf
-
-# Windows (PowerShell — via Scoop)
-scoop install buf
-
-# Or download directly from:
-# https://github.com/bufbuild/buf/releases
-```
-
-Verify:
-```bash
-buf --version
-```
-
-### Generate Go code from proto files
-
-```bash
-buf generate
-```
-
-This reads `buf.gen.yaml` and writes generated files to `gen/go/omnivore/v1/`:
-- `*.pb.go` — message types (from `protocolbuffers/go` plugin)
-- `*_grpc.pb.go` — service interfaces and client stubs (from `grpc/go` plugin)
-
-The `gen/go/` directory is gitignored — always regenerate after pulling changes to `.proto` files.
-
-### Activate the gRPC handlers
-
-After generating, uncomment the imports and implementations in:
-
-```
-internal/grpcserver/server.go   ← service registration
-internal/grpcserver/system.go   ← SystemService
-internal/grpcserver/banner.go   ← BannerService
-internal/grpcserver/sop.go      ← SOPService
-```
-
-### Run the gRPC server
+Runs on `:9000`. Exposes `SystemService`, `BannerService`, and `SOPService` — same functionality as the HTTP API.
 
 ```bash
 go run cmd/grpc/main.go
-# gRPC server listening on :9000
-```
-
-Run both servers together (two terminals):
-```bash
-# Terminal 1
-go run cmd/main.go
-
-# Terminal 2
-go run cmd/grpc/main.go
-```
-
-### Test with grpcurl
-
-```bash
-# Install grpcurl
-go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
-
-# List available services (reflection is enabled)
+buf generate               # regenerate after .proto changes
 grpcurl -plaintext localhost:9000 list
-
-# Health check
-grpcurl -plaintext localhost:9000 omnivore.v1.SystemService/Health
-
-# Ask a SOP question
-grpcurl -plaintext -d '{"question":"How do I start Axiom?","top_k":3}' \
-  localhost:9000 omnivore.v1.SOPService/Ask
-
-# List SOPs
-grpcurl -plaintext localhost:9000 omnivore.v1.SOPService/List
 ```
 
-### Lint and breaking-change detection
-
-```bash
-# Lint proto files
-buf lint
-
-# Check for breaking changes against git HEAD
-buf breaking --against '.git#branch=main'
-```
+Proto definitions: `proto/omnivore/v1/`. Generated code: `gen/go/` (gitignored).
 
 ---
 
-## Project Structure
-
-```
-go-omnivore-rag/
-├── cmd/
-│   ├── main.go                        ← HTTP server entry point  (port 8000)
-│   └── grpc/
-│       └── main.go                    ← gRPC server entry point  (port 9000)
-├── proto/
-│   └── omnivore/v1/
-│       ├── common.proto               ← Shared messages (AskResponse, SourceChunk, …)
-│       ├── system.proto               ← SystemService (Health, IndexStats, CreateIndex)
-│       ├── banner.proto               ← BannerService (Ask, Ingest, BlobSync, Summarize)
-│       └── sop.proto                  ← SOPService (Ask, Ingest, List)
-├── gen/
-│   └── go/                            ← Generated protobuf code (run `buf generate`)
-├── buf.yaml                           ← buf module config (lint + breaking detection)
-├── buf.gen.yaml                       ← buf code generation config
-├── config/
-│   └── config.go                      ← Loads all settings from .env
-├── internal/
-│   ├── azure/
-│   │   ├── openai.go                  ← Azure OpenAI REST client (embed + chat)
-│   │   ├── search.go                  ← Azure AI Search REST client (index + hybrid search)
-│   │   └── blob.go                    ← Azure Blob Storage SDK client
-│   ├── websearch/
-│   │   ├── bing.go                    ← Bing Web Search v7 client + WebSearcher interface
-│   │   └── tavily.go                  ← Tavily search client (active web search backend)
-│   ├── ingest/
-│   │   ├── ingest.go                  ← Ingestion pipeline (walk → extract → chunk → embed → index)
-│   │   ├── docx.go                    ← DOCX paragraph extractor (no external deps)
-│   │   ├── sop.go                     ← SOP filename/metadata parser
-│   │   ├── sop_chunker.go             ← Section-aware SOP chunker with breadcrumbs
-│   │   └── student_chunker.go         ← Section-aware chunker for Banner Student user guides
-│   ├── rag/
-│   │   ├── rag.go                     ← RAG pipeline (retrieve + generate)
-│   │   ├── summarize.go               ← Summarization pipeline (4 focused topics)
-│   │   ├── modules.go                 ← Banner module definitions and registry
-│   │   └── student.go                 ← Student-specific pipelines (ask, procedure, lookup, cross-ref)
-│   ├── api/
-│   │   ├── handlers.go                ← HTTP handlers (Gin)
-│   │   └── router.go                  ← Gin route wiring
-│   └── grpcserver/
-│       ├── server.go                  ← gRPC server setup and service registration
-│       ├── system.go                  ← SystemService handler implementation
-│       ├── banner.go                  ← BannerService handler implementation
-│       └── sop.go                     ← SOPService handler implementation
-├── apis/
-│   └── Omnivore RAG API/              ← Bruno HTTP collection
-├── data/
-│   └── docs/
-│       ├── banner/                    ← Banner release note PDFs
-│       └── sop/                       ← SOP .docx files
-├── wiki/                              ← Technical docs (internals, deployment, integrations)
-├── .env.example
-└── go.mod
-```
-
----
-
-## .env Configuration
+## .env reference
 
 ```env
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com/
-AZURE_OPENAI_API_KEY=<your-api-key>
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
+AZURE_OPENAI_API_KEY=
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o-mini
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-ada-002
 
-# Azure AI Search
-AZURE_SEARCH_ENDPOINT=https://<your-search>.search.windows.net
-AZURE_SEARCH_API_KEY=<your-search-admin-key>
+AZURE_SEARCH_ENDPOINT=https://<search>.search.windows.net
+AZURE_SEARCH_API_KEY=
 AZURE_SEARCH_INDEX_NAME=omnivore-knowledge
 
-# Azure Blob Storage (optional)
-AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=...
+AZURE_STORAGE_CONNECTION_STRING=   # optional
 AZURE_STORAGE_CONTAINER_NAME=banner-release-notes
-AZURE_STORAGE_BLOB_PREFIX=
 
-# Web Search — optional, enables mode=web/hybrid/auto
-# Get a key at app.tavily.com
-TAVILY_API_KEY=tvly-<your-key>
-WEB_SEARCH_TOP_K=5
+TAVILY_API_KEY=                    # optional, enables mode=web/hybrid/auto
 CONFIDENCE_HIGH_THRESHOLD=0.030
 CONFIDENCE_LOW_THRESHOLD=0.010
 
-# RAG Tuning
 CHUNK_SIZE=500
 CHUNK_OVERLAP=25
 TOP_K_DEFAULT=5
-
-# API
 API_PORT=8000
 GRPC_PORT=9000
-LOG_LEVEL=info
 ```
 
 ---
 
-## Cost Control Tips
+## Wiki
 
-- Use **Free tier** for Azure AI Search during development
-- Use **gpt-4o-mini** instead of gpt-4o — ~95% cheaper
-- Set **10K TPM** limits on both OpenAI deployments
-- Set a **budget alert** in Azure Cost Management ($20/month recommended)
-- Only re-ingest when you have new documents — avoid unnecessary embedding calls
-- Use `start_page` / `end_page` on Banner ingest to test specific page ranges
-
----
-
-## Roadmap
-
-Potential improvements roughly ordered by value:
-
-**Developer Experience**
-- [ ] **Makefile** — `make run`, `make docs`, `make proto`, `make test`, `make build` in one place
-- [ ] **Air (live reload)** — restart server automatically on file changes during development
-- [x] **Graceful shutdown** — `SIGTERM`/`SIGINT` handling with 30s drain window in `cmd/main.go`
-
-**Observability**
-- [ ] **Structured logging** — replace `log.Printf` with `slog` (Go stdlib) for JSON log output
-- [ ] **Request ID middleware** — stamp every request with a trace ID for log correlation
-
-**API**
-- [ ] **CORS middleware** — required before any browser or frontend can call this API
-- [ ] **Pagination** — `/sop` and `/debug/chunks` currently return unbounded lists
-- [ ] **Streaming responses (SSE)** — stream GPT tokens on `/banner/ask` and `/sop/ask` instead of waiting for the full answer
-
-**CI/CD & Deployment**
-- [ ] **GitHub Actions** — `go build`, `go vet`, `go test ./...` on every push
-- [x] **Dockerfile + docker-compose** — run the stack without needing Go installed locally
+| Guide | What it covers |
+|---|---|
+| [RUNBOOK.md](wiki/RUNBOOK.md) | **Start here** — end-to-end setup for all run paths |
+| [LOCAL-DEV.md](wiki/LOCAL-DEV.md) | Dev session startup, env vars, common commands |
+| [DOCKER-DEV.md](wiki/DOCKER-DEV.md) | Full Docker Compose stack (backend + adapter + ngrok) |
+| [BOTPRESS-SETUP.md](wiki/BOTPRESS-SETUP.md) | Botpress wiring, Execute Code snippets, testing options |
+| [FLY-NGROK.md](wiki/FLY-NGROK.md) | Fly.io deploy, ngrok tunnel, secrets |
+| [CHATBOT.md](wiki/CHATBOT.md) | Architecture, API surface, response shapes, user guide routing |
+| [INTERNALS.md](wiki/INTERNALS.md) | Design decisions, data flow, chunking strategy |
+| [TROUBLESHOOTING.md](wiki/TROUBLESHOOTING.md) | Symptoms → root cause → fix |
+| [INTEGRATIONS.md](wiki/INTEGRATIONS.md) | LangGraph, n8n, MCP integration ideas |
+| [OBSERVABILITY.md](wiki/OBSERVABILITY.md) | Logging, metrics, tracing |
+| [UPGRADES.md](wiki/UPGRADES.md) | API hardening, RAG quality, streaming, roadmap |
+| [CLAUDE_AGENTS.md](wiki/CLAUDE_AGENTS.md) | Claude agent designs over this backend |
 
 ---
 
-## Implementation Notes
+## Implementation notes
 
-- Azure OpenAI and Azure AI Search use **direct REST calls** (no official Go SDK) — intentional for transparency
-- Azure Blob Storage uses the **official Go SDK**
-- DOCX parsing uses only `archive/zip` and `encoding/xml` — no external Word library
-- Banner PDFs use character-based chunking with sentence boundary detection
-- SOP `.docx` files use section-aware chunking with breadcrumb prefixes
-- Hybrid search combines **vector similarity** (semantic) + **BM25 keyword** search
-- A single Azure AI Search index stores both Banner and SOP documents, separated by `source_type`
-- gRPC server exposes the same functionality as the HTTP API — both share all internal packages
-- gRPC reflection is enabled so `grpcurl` and gRPC UI can discover services without `.proto` files
+- Azure OpenAI and Azure AI Search use direct REST calls — no official Go SDK (intentional for transparency)
+- Azure Blob Storage uses the official Go SDK
+- DOCX parsing uses only `archive/zip` and `encoding/xml`
+- Single Azure AI Search index stores Banner, SOP, and user-guide documents separated by `source_type`
+- gRPC reflection enabled so `grpcurl` works without `.proto` files
 
 ---
 
 ## License
 
-MIT — free to use for learning and educational purposes.
-
----
-
-## Disclaimer
-
-This project is not affiliated with or endorsed by Ellucian. Banner is a trademark of Ellucian Company L.P. Real Banner release notes are licensed documents — do not share or redistribute them publicly.
+MIT. Not affiliated with or endorsed by Ellucian. Banner is a trademark of Ellucian Company L.P. Do not redistribute real Banner release notes.

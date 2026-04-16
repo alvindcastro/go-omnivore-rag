@@ -1,5 +1,32 @@
 basePath: /
 definitions:
+  adapter.AdapterResponse:
+    properties:
+      answer:
+        type: string
+      confidence:
+        description: Confidence score from sources[0].score (0–1); 0.0 if no sources
+          returned
+        type: number
+      escalate:
+        description: true when confidence < 0.5 or retrieval_count == 0
+        type: boolean
+      sources:
+        items:
+          $ref: '#/definitions/adapter.AdapterSource'
+        type: array
+    type: object
+  adapter.AdapterSource:
+    properties:
+      page:
+        type: integer
+      sop_number:
+        type: string
+      source_type:
+        type: string
+      title:
+        type: string
+    type: object
   api.bannerAskRequest:
     properties:
       module_filter:
@@ -42,6 +69,97 @@ definitions:
       prefix:
         type: string
     type: object
+  api.moduleAskRequest:
+    properties:
+      mode:
+        description: '"local" (default) | "web" | "hybrid" | "auto"'
+        type: string
+      question:
+        minLength: 5
+        type: string
+      section_filter:
+        type: string
+      source_type:
+        description: Optional — narrows to a specific doc type
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+      year_filter:
+        type: string
+    required:
+    - question
+    type: object
+  api.chatAskRequest:
+    properties:
+      intent:
+        description: 'Optional intent hint: RegistrationBanner | FinanceBanner | TranscriptSop
+          | HoldsSop | ReleaseSummary | General'
+        type: string
+      message:
+        type: string
+      session_id:
+        type: string
+      source:
+        description: 'Optional routing override: general | student | finance | sop
+          | auto'
+        enum:
+        - general
+        - student
+        - finance
+        - sop
+        - auto
+        type: string
+    required:
+    - message
+    - session_id
+    type: object
+  api.intentResponse:
+    properties:
+      confidence:
+        description: Normalized score 0–1
+        type: number
+      intent:
+        description: One of RegistrationBanner | FinanceBanner | TranscriptSop | HoldsSop
+          | ReleaseSummary | General
+        type: string
+    type: object
+  api.messageRequest:
+    properties:
+      message:
+        type: string
+    required:
+    - message
+    type: object
+  api.sentimentResponse:
+    properties:
+      score:
+        description: Normalized score 0–1
+        type: number
+      sentiment:
+        description: One of Positive | Neutral | Frustrated
+        type: string
+    type: object
+  api.studentAskRequest:
+    properties:
+      mode:
+        description: '"local" (default) | "web" | "hybrid" | "auto"'
+        type: string
+      module_filter:
+        type: string
+      question:
+        minLength: 5
+        type: string
+      section_filter:
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+    required:
+    - question
+    type: object
   api.sopAskRequest:
     properties:
       question:
@@ -70,6 +188,37 @@ definitions:
           $ref: '#/definitions/rag.SourceChunk'
         type: array
     type: object
+  rag.CrossReferenceRequest:
+    properties:
+      module_filter:
+        type: string
+      question:
+        minLength: 5
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+    required:
+    - question
+    type: object
+  rag.CrossReferenceResponse:
+    properties:
+      analysis:
+        type: string
+      guide_sources:
+        items:
+          $ref: '#/definitions/rag.SourceChunk'
+        type: array
+      question:
+        type: string
+      release_sources:
+        items:
+          $ref: '#/definitions/rag.SourceChunk'
+        type: array
+      retrieval_count:
+        type: integer
+    type: object
   rag.FullSummaryResponse:
     properties:
       action_items:
@@ -91,6 +240,64 @@ definitions:
           type: integer
         type: array
       what_changed:
+        type: string
+    type: object
+  rag.LookupRequest:
+    properties:
+      module_filter:
+        type: string
+      section_filter:
+        type: string
+      term:
+        minLength: 2
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+    required:
+    - term
+    type: object
+  rag.LookupResponse:
+    properties:
+      definition:
+        type: string
+      retrieval_count:
+        type: integer
+      sources:
+        items:
+          $ref: '#/definitions/rag.SourceChunk'
+        type: array
+      term:
+        type: string
+    type: object
+  rag.ProcedureRequest:
+    properties:
+      module_filter:
+        type: string
+      section_filter:
+        type: string
+      topic:
+        minLength: 5
+        type: string
+      top_k:
+        type: integer
+      version_filter:
+        type: string
+    required:
+    - topic
+    type: object
+  rag.ProcedureResponse:
+    properties:
+      procedure:
+        type: string
+      retrieval_count:
+        type: integer
+      sources:
+        items:
+          $ref: '#/definitions/rag.SourceChunk'
+        type: array
+      topic:
         type: string
     type: object
   rag.SourceChunk:
@@ -281,6 +488,205 @@ paths:
       summary: Ingest Banner release note PDFs into the search index
       tags:
       - banner
+  /banner/{module}/ask:
+    post:
+      consumes:
+      - application/json
+      description: Supported module values: finance, student, hr, financial-aid, ar,
+        general
+      parameters:
+      - description: Banner module name
+        in: path
+        name: module
+        required: true
+        type: string
+      - description: Question payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.moduleAskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.AskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ask a question scoped to a specific Banner module
+      tags:
+      - banner
+  /banner/student/ask:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Question payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.studentAskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.AskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ask a question against Banner Student user guide
+      tags:
+      - student
+  /banner/student/cross-reference:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Cross-reference request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.CrossReferenceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.CrossReferenceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Analyse how a Banner release change affects Student user guide procedures
+      tags:
+      - student
+  /banner/student/ingest:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ingest options
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.bannerIngestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Ingest Banner Student user guide PDFs into the search index
+      tags:
+      - student
+  /banner/student/lookup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Lookup request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.LookupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.LookupResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Look up a Banner Student concept or feature definition
+      tags:
+      - student
+  /banner/student/procedure:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Procedure request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/rag.ProcedureRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rag.ProcedureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get step-by-step instructions for a Banner Student task
+      tags:
+      - student
   /banner/summarize/actions:
     post:
       consumes:
@@ -446,6 +852,111 @@ paths:
       summary: Full summary across all topics for a Banner release
       tags:
       - banner
+  /chat/ask:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Chat message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.chatAskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/adapter.AdapterResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method Not Allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Route a student message to Banner or SOP backend based on intent/source
+      tags:
+      - chat
+  /chat/intent:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Message to classify
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.messageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.intentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method Not Allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Classify the intent of a student message (6 intents)
+      tags:
+      - chat
+  /chat/sentiment:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Message to analyze
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.messageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.sentimentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "405":
+          description: Method Not Allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Analyze the sentiment of a student message
+      tags:
+      - chat
   /debug/chunks:
     get:
       produces:
