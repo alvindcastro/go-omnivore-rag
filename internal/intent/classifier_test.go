@@ -63,3 +63,21 @@ func TestClassifier_BannerReleaseDetectsVersion(t *testing.T) {
 		assert.Equal(t, BannerRelease, c.Classify(msg).Intent, "input: %q", msg)
 	}
 }
+
+func TestClassifier_BannerUsage(t *testing.T) {
+	c := NewClassifier(DefaultIntentConfig())
+	cases := []struct {
+		input    string
+		expected Intent
+	}{
+		{"How do I navigate the Banner main menu?", BannerUsage},
+		{"Where do I find the journal entry form in Banner?", BannerUsage},
+		{"How to use the Banner Finance module", BannerUsage},
+		{"How to restart the Banner server", SopQuery},
+		{"What changed in Banner Finance?", BannerRelease},
+	}
+	for _, tc := range cases {
+		result := c.Classify(tc.input)
+		assert.Equal(t, tc.expected, result.Intent, "input: %q", tc.input)
+	}
+}

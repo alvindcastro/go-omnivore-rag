@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// Intent represents one of the 5 classified routing intents.
+// Intent represents one of the 6 classified routing intents.
 type Intent string
 
 const (
@@ -12,6 +12,7 @@ const (
 	BannerFinance Intent = "BannerFinance"
 	SopQuery      Intent = "SopQuery"
 	BannerAdmin   Intent = "BannerAdmin"
+	BannerUsage   Intent = "BannerUsage"
 	General       Intent = "General"
 )
 
@@ -28,6 +29,7 @@ type IntentConfig struct {
 	BannerFinance []string
 	SopQuery      []string
 	BannerAdmin   []string
+	BannerUsage   []string
 }
 
 // DefaultIntentConfig returns the production keyword configuration.
@@ -49,10 +51,16 @@ func DefaultIntentConfig() IntentConfig {
 			"configure", "configuration", "security role", "parameter",
 			"permission", "module", "install", "setup",
 		},
+		BannerUsage: []string{
+			"how to use", "how do i navigate", "navigate banner", "banner navigation",
+			"banner form", "banner screen", "banner menu",
+			"user guide", "where do i", "look up a",
+			"what is the banner", "how do i find",
+		},
 	}
 }
 
-// Classifier classifies messages into one of the 5 intents.
+// Classifier classifies messages into one of the 6 intents.
 type Classifier struct {
 	cfg IntentConfig
 }
@@ -78,6 +86,7 @@ func (c *Classifier) Classify(message string) IntentResult {
 		{BannerFinance, c.cfg.BannerFinance},
 		{SopQuery, c.cfg.SopQuery},
 		{BannerAdmin, c.cfg.BannerAdmin},
+		{BannerUsage, c.cfg.BannerUsage},
 	}
 
 	scores := make(map[Intent]float64, len(candidates))
