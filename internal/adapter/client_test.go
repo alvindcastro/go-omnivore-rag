@@ -47,7 +47,7 @@ func TestAdapterClient_BannerAsk_LowConfidence_SetsEscalate(t *testing.T) {
 		json.NewEncoder(w).Encode(ragAskResponse{
 			Answer:         "I'm not sure.",
 			RetrievalCount: 1,
-			Sources:        []ragSourceChunk{{Score: 0.3}}, // below 0.5 threshold
+			Sources:        []ragSourceChunk{{Score: 0.005}}, // below calibrated floor 0.01
 		})
 	}))
 	defer srv.Close()
@@ -57,6 +57,23 @@ func TestAdapterClient_BannerAsk_LowConfidence_SetsEscalate(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, result.Escalate)
+}
+
+func TestAdapterClient_ScoreAboveFloor_DoesNotEscalate(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(ragAskResponse{
+			Answer:         "Banner General 9.3.37 changed X.",
+			RetrievalCount: 3,
+			Sources:        []ragSourceChunk{{Score: 0.033}}, // observed real-world score
+		})
+	}))
+	defer srv.Close()
+
+	client := NewAdapterClient(srv.URL)
+	result, err := client.AskBanner(context.Background(), "What changed in Banner?", AskOptions{})
+
+	require.NoError(t, err)
+	assert.False(t, result.Escalate, "score 0.033 with 3 sources should not escalate")
 }
 
 func TestAdapterClient_BannerAsk_NoResults_Escalates(t *testing.T) {

@@ -153,7 +153,7 @@ All changes follow Red → Green → Refactor.
 
 ### Tasks
 
-- [ ] **B.1 — Write failing tests for `retrieval_count == 0` hard gate**
+- [x] **B.1 — Write failing tests for `retrieval_count == 0` hard gate**
 
   **Prompt for implementer:**
   Open `internal/adapter/client_test.go`. Confirm `TestAdapterClient_BannerAsk_NoResults_Escalates`
@@ -170,7 +170,7 @@ All changes follow Red → Green → Refactor.
   ```
   Run `go test ./internal/adapter/... -v` — must be **GREEN** (gate already exists).
 
-- [ ] **B.2 — Write failing test for calibrated floor**
+- [x] **B.2 — Write failing test for calibrated floor**
 
   **Prompt for implementer:**
   In `internal/adapter/client_test.go`, update `TestAdapterClient_BannerAsk_LowConfidence_SetsEscalate`
@@ -197,7 +197,7 @@ All changes follow Red → Green → Refactor.
   Run `go test ./internal/adapter/... -v` — `TestAdapterClient_ScoreAboveFloor_DoesNotEscalate`
   must be **RED** while 0.5 threshold is in place. This is the failing test that drives the fix.
 
-- [ ] **B.3 — Fix threshold in adapter/client.go**
+- [x] **B.3 — Fix threshold in adapter/client.go**
 
   **Prompt for implementer:**
   In `internal/adapter/client.go`, update `mapResponse`:
@@ -212,7 +212,7 @@ All changes follow Red → Green → Refactor.
   Run `go test ./... -v` — `TestAdapterClient_ScoreAboveFloor_DoesNotEscalate` must be
   **GREEN**. All other tests must remain **GREEN**. If any break, fix them.
 
-- [ ] **B.4 — Update CLAUDE.md escalate rule**
+- [x] **B.4 — Update CLAUDE.md escalate rule**
 
   **Prompt for implementer:**
   In `CLAUDE.md`, find the line:

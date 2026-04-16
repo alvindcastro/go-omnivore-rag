@@ -75,7 +75,7 @@ func NewAdapterClient(baseURL string) *AdapterClient {
 
 // AskBanner queries /banner/ask and maps the result to AdapterResponse.
 // Confidence = sources[0].score (0.0 if no sources).
-// Escalate = true when Confidence < 0.5 OR RetrievalCount == 0.
+// Escalate = true when RetrievalCount == 0 (hard gate) OR Confidence < 0.01 (calibrated floor).
 func (c *AdapterClient) AskBanner(ctx context.Context, question string, opts AskOptions) (AdapterResponse, error) {
 	body := bannerAskRequest{
 		Question:      question,
@@ -134,7 +134,10 @@ func mapResponse(raw ragAskResponse) AdapterResponse {
 		confidence = raw.Sources[0].Score
 	}
 
-	escalate := confidence < 0.5 || raw.RetrievalCount == 0
+	// Escalate on hard gate (no docs) or near-zero score (tangential hit).
+	// Azure AI Search hybrid scores for this index cluster 0.01–0.05 for valid results.
+	// Threshold derived from empirical calibration — see wiki/RUNBOOK.md § Score Distribution.
+	escalate := raw.RetrievalCount == 0 || confidence < 0.01
 
 	sources := make([]AdapterSource, len(raw.Sources))
 	for i, s := range raw.Sources {
