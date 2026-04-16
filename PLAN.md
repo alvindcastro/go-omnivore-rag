@@ -72,7 +72,7 @@ real answers. The calibration agent (Phase B) will validate or revise this floor
 
 ### Tasks
 
-- [ ] **A.1 — Run baseline diagnostic with Agent 7**
+- [x] **A.1 — Run baseline diagnostic with Agent 7**
 
   **Prompt for implementer:**
   Use Agent 7 (CLAUDE_AGENTS.md § Agent 7) to run a diagnostic session against the live
@@ -106,7 +106,7 @@ real answers. The calibration agent (Phase B) will validate or revise this floor
     -d '{"question":"What changed in Banner General?","module_filter":"General","top_k":5}' | jq '{count:.retrieval_count, score:.sources[0].score, answer:.answer[:80]}'
   ```
 
-- [ ] **A.2 — Identify score distribution boundaries**
+- [x] **A.2 — Identify score distribution boundaries**
 
   **Prompt for implementer:**
   From the data collected in A.1, identify:
@@ -131,7 +131,7 @@ real answers. The calibration agent (Phase B) will validate or revise this floor
   Recommended floor: 0.0XX
   ```
 
-- [ ] **A.3 — Decide final threshold**
+- [x] **A.3 — Decide final threshold**
 
   **Prompt for implementer:**
   Based on A.2 findings, choose the escalate floor. Decision criteria:

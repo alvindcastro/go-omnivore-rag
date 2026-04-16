@@ -345,21 +345,49 @@ All tests use `httptest` mocks — no live backend or Azure needed.
 Azure AI Search returns raw hybrid scores (BM25 + semantic re-ranker), **not** normalized
 0–1 confidence values. These scores are index-specific and corpus-size-dependent.
 
-**Observed range for this index** (update after each major ingestion):
+### Calibration run — 2026-04-16  (backend sha: a9b691c)
 
-| Category | Score range | Example |
+Query set run against `module_filter=General` (Banner index). Finance module not indexed.
+
+| Query | retrieval_count | sources[0].score | Has useful answer? |
+|-------|----------------|------------------|--------------------|
+| What changed in Banner General? | 5 | 0.03254 | YES — Banner 9.3.37.2 / 8.26.2 info returned |
+| What is new in Banner 9.3.37.2? | 5 | 0.03280 | YES — specific release enhancements found |
+| What are the breaking changes in Banner? | 5 | 0.03306 | PARTIAL — docs found; no explicit breaking changes listed |
+| What are the Banner HR module changes? | 5 | 0.03279 | NO — docs retrieved but none are HR-specific |
+| What changed in Banner Finance 9.3.37? | 0 | 0 | NO — Finance not indexed |
+| What are the Banner General release notes? | 0 | 0 | TIMEOUT (backend overloaded) |
+| What support changes were made in Banner 8? | 0 | 0 | TIMEOUT |
+| Banner Student 9.4.1 release notes | 0 | 0 | TIMEOUT |
+| What is the Banner General 8.26 changelog? | 0 | 0 | TIMEOUT |
+
+### Score distribution findings
+
+| Category | Score Range | Example |
 |----------|------------|---------|
-| Valid answer with sources | 0.01–0.05 | `"What changed in Banner?"` → 0.033 |
-| No results (nothing indexed) | 0 | `"Banner 9.3.37 specific"` → 0 |
+| Good answer | 0.0325–0.0331 | "What changed in Banner General?" → 0.03254 |
+| Tangential (rc>0, answer irrelevant) | 0.0325–0.0331 | "Banner HR changes?" → 0.03279 (same range!) |
+| No results (nothing indexed) | 0 | Finance / Student queries → 0 |
 
-**Escalation logic** (`internal/adapter/client.go:mapResponse`):
+**Key finding:** Good answers and tangential answers have **identical score ranges** (~0.0325–0.0331).
+There is no natural gap between them. Score alone cannot distinguish a useful answer from an
+irrelevant one — that distinction requires reading the answer text.
+
+### Escalation decision
+
+**Sole reliable gate:** `retrieval_count == 0`
+
+Score threshold is kept as a noise guard only:
 
 ```
-escalate = retrieval_count == 0   ← hard gate (reliable binary)
-        || confidence < floor      ← soft guard against near-zero noise
+escalate = retrieval_count == 0   ← hard gate (reliable binary; Finance/Student return 0)
+        || confidence < 0.01      ← soft guard: near-zero noise only, not a quality gate
 ```
 
-**Current floor:** `0.01` (interim — pending Phase A calibration from PLAN.md)
+**Recommended floor: `0.01`** — all observed valid scores are ~0.033; this floor only fires if
+score drops below ~30 % of the lowest observed valid score, i.e., true noise. Do not raise above
+`0.01` based on current data: it would not filter tangential hits (they score same as good answers)
+and would only increase false escalations.
 
 **Important:** A score of 0.033 with sources present is a **good answer**. Do not raise the floor
 above 0.05 without running Agent 9 (Confidence Calibration) first — see `wiki/CLAUDE_AGENTS.md`.
