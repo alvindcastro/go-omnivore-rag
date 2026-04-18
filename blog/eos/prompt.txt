@@ -1,0 +1,13 @@
+prompt
+you are in a blog repository
+you check the MD files in /wiki as well as CLAUDE and README
+you will create new blog content
+break to logical phases
+tone:
+- casual with sprinkles of technical jargon
+- likes to build side projects on spare time
+- always looking for ways to improve self and the team
+- fast adapter to new technologies
+audiences: hiring managers, technical leaders
+origin is that banner release notes are huge files with lots of details
+added SOPs
